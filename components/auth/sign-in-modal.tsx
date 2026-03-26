@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { createClient } from '@/lib/supabase/client'
 
 interface SignInModalProps {
   open: boolean
@@ -14,20 +15,13 @@ interface SignInModalProps {
 
 export function SignInModal({ open, onOpenChange }: SignInModalProps) {
   const handleGoogleSignIn = async () => {
-    // Placeholder for Supabase auth
-    // const { data, error } = await supabase.auth.signInWithOAuth({
-    //   provider: 'google',
-    //   options: {
-    //     redirectTo: `${window.location.origin}/auth/callback`,
-    //   },
-    // })
-    // TODO: Implement Supabase auth when connected
-    // const { data, error } = await supabase.auth.signInWithOAuth({
-    //   provider: 'google',
-    //   options: {
-    //     redirectTo: `${window.location.origin}/auth/callback`,
-    //   },
-    // })
+    const supabase = createClient()
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?flow=login`,
+      },
+    })
   }
 
   return (
