@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 import {
   DndContext,
   closestCenter,
@@ -129,11 +130,40 @@ export function RoadBuilderClient({ cities, userRoadCount, maxRoads }: RoadBuild
   const handleSave = async () => {
     if (!roadName.trim() || selectedComponents.length === 0 || atLimit) return
     setIsSaving(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setSaveSuccess(true)
-    setTimeout(() => {
-      router.push('/road')
-    }, 500)
+
+    try {
+      const res = await fetch('/api/roads/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: roadName.trim(),
+          color: roadColor,
+          component_ids: selectedComponents.map(c => c.id),
+          is_published: publishToUniversity,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.error === 'road_limit') {
+          toast.error('You have 3 roads. Delete one to create more.')
+        } else if (data.error === 'daily_op_limit') {
+          toast.error('One road operation per day. Come back tomorrow.')
+        } else {
+          toast.error(data.message ?? 'Failed to save road.')
+        }
+        return
+      }
+
+      toast.success('Road saved!')
+      setSaveSuccess(true)
+      setTimeout(() => router.push('/road'), 500)
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const activeComponent = activeId ? selectedComponents.find(c => c.id === activeId) : null
