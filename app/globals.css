@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Core backgrounds - Jnana Sethu dark theme */
+  --bg-base: #0A0A0A;
+  --bg-elevated: #111111;
+  --bg-card: #141414;
+  --bg-light: #F5F5F3;
+  --bg-light-card: #EBEBEA;
+
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: #A0A0A0;
+  --text-muted: #555555;
+  --text-on-light: #111111;
+  --text-on-light-muted: #666666;
+
+  /* Accent — orange */
+  --accent: #F97316;
+  --accent-hover: #EA6B0A;
+  --accent-dim: rgba(249, 115, 22, 0.12);
+
+  /* Borders */
+  --border: #1F1F1F;
+  --border-light: #E5E5E3;
+  --border-accent: rgba(249, 115, 22, 0.3);
+
+  /* City colors */
+  --city-jungle: #059669;
+  --city-vault: #D97706;
+  --city-tower: #DC2626;
+  --city-signal: #0284C7;
+  --city-picnic: #10B981;
+  --city-blueprint: #7C3AED;
+  --city-engine: #0D9488;
+  --city-api: #6366F1;
+  --city-cloud: #B45309;
+  --city-garage: #166534;
+
+  /* shadcn defaults - overridden for dark theme */
+  --background: #0A0A0A;
+  --foreground: #FFFFFF;
+  --card: #141414;
+  --card-foreground: #FFFFFF;
+  --popover: #111111;
+  --popover-foreground: #FFFFFF;
+  --primary: #F97316;
+  --primary-foreground: #000000;
+  --secondary: #1F1F1F;
+  --secondary-foreground: #FFFFFF;
+  --muted: #1F1F1F;
+  --muted-foreground: #A0A0A0;
+  --accent: #F97316;
+  --accent-foreground: #000000;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #1F1F1F;
+  --input: #1F1F1F;
+  --ring: #F97316;
+  --radius: 0.25rem;
+
+  --chart-1: #F97316;
+  --chart-2: #059669;
+  --chart-3: #0284C7;
+  --chart-4: #7C3AED;
+  --chart-5: #DC2626;
+
+  --sidebar: #0A0A0A;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #F97316;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #1F1F1F;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1F1F1F;
+  --sidebar-ring: #F97316;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Inter Fallback', sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Utility: wireframe polygon background — reusable */
+.poly-bg {
+  position: relative;
+  overflow: hidden;
+}
+.poly-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='800' height='600' viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23FFFFFF' stroke-width='0.5' opacity='0.07'%3E%3Cpolygon points='650,50 800,150 780,300 650,380 500,300 480,150'/%3E%3Cpolygon points='50,200 200,100 350,180 370,350 220,430 70,360'/%3E%3Cpolygon points='300,400 450,350 560,440 520,580 340,600'/%3E%3Cline x1='650' y1='50' x2='350' y2='180'/%3E%3Cline x1='200' y1='100' x2='480' y2='150'/%3E%3Cline x1='370' y1='350' x2='500' y2='300'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+  z-index: 0;
+}
+.poly-bg > * { position: relative; z-index: 1; }
+
+/* Typography helpers */
+.headline-mix {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.headline-mix .bold { font-weight: 800; }
+.headline-mix .thin { font-weight: 300; color: var(--text-secondary); }
+
+/* Scrollbar — dark */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* Scroll indicator animation */
+@keyframes rotate-text {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-rotate-text {
+  animation: rotate-text 8s linear infinite;
+}
