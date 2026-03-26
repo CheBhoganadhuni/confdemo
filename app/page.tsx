@@ -1,16 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Navbar } from '@/components/layout/navbar'
 import { PolyBackground } from '@/components/ui/poly-background'
 import { OrangeScrollIndicator } from '@/components/ui/orange-scroll-indicator'
 import { SignInModal } from '@/components/auth/sign-in-modal'
 import { ArrowRight } from 'lucide-react'
 
-export default function Home() {
+const ERROR_MESSAGES: Record<string, string> = {
+  suspended: 'Your university access is currently suspended.',
+  not_registered: "Your email isn't registered. Ask your faculty to add you.",
+  use_login: 'Use the Sign In button to access your existing account.',
+  auth_failed: 'Authentication failed. Please try again.',
+}
+
+function HomeContent() {
+  const searchParams = useSearchParams()
   // Demo: toggle between logged in and logged out states
   const [user, setUser] = useState<{ name: string; email: string } | null>(null)
   const [signInOpen, setSignInOpen] = useState(false)
+  const [errorToast, setErrorToast] = useState<string | null>(null)
+
+  // Handle error params from auth callback
+  useEffect(() => {
+    const error = searchParams.get('error')
+    if (error && ERROR_MESSAGES[error]) {
+      setErrorToast(ERROR_MESSAGES[error])
+      // Clear the error param from URL without reload
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      window.history.replaceState({}, '', url.pathname)
+    }
+  }, [searchParams])
+
+  // Auto-dismiss toast after 6 seconds
+  useEffect(() => {
+    if (errorToast) {
+      const timer = setTimeout(() => {
+        setErrorToast(null)
+      }, 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [errorToast])
 
   const handleSignOut = () => {
     setUser(null)
@@ -349,6 +381,30 @@ export default function Home() {
 
       {/* Sign In Modal */}
       <SignInModal open={signInOpen} onOpenChange={setSignInOpen} />
+
+      {/* Error Toast */}
+      {errorToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-[#111] border border-[#F97316]/30 text-white text-sm px-4 py-3 rounded-sm flex items-center gap-3">
+            <span>{errorToast}</span>
+            <button
+              onClick={() => setErrorToast(null)}
+              className="text-[#555] hover:text-white transition-colors"
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   )
 }

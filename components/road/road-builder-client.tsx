@@ -226,31 +226,24 @@ export function RoadBuilderClient({ cities, userRoadCount, maxRoads }: RoadBuild
                     value={city.id}
                     className="border-none"
                   >
-                    <AccordionTrigger className="py-2 px-2 hover:no-underline hover:bg-[#111] rounded-sm [&[data-state=open]>svg]:rotate-180">
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-xs" style={{ color: city.color }}>{city.icon}</span>
-                        <span className="text-white text-sm font-medium">{city.name}</span>
-                      </div>
-                      <span
-                        role="button"
-                        tabIndex={0}
+                    <div className="flex items-center py-2 px-2 hover:bg-[#111] rounded-sm">
+                      <AccordionTrigger className="flex-1 hover:no-underline p-0 [&[data-state=open]>svg]:rotate-180">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="text-xs" style={{ color: city.color }}>{city.icon}</span>
+                          <span className="text-white text-sm font-medium">{city.name}</span>
+                        </div>
+                      </AccordionTrigger>
+                      <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          e.preventDefault()
                           addAllFromCity(city.id)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.stopPropagation()
-                            e.preventDefault()
-                            addAllFromCity(city.id)
-                          }
                         }}
                         className="text-[#F97316] text-xs hover:underline mr-2 cursor-pointer"
                       >
                         Add all
-                      </span>
-                    </AccordionTrigger>
+                      </button>
+                    </div>
                     <AccordionContent className="pb-0">
                       <div className="space-y-1">
                         {city.components.map(comp => {
