@@ -48,6 +48,7 @@ export interface User {
   last_token_at?: string
   current_cycle_start?: string
   onboarding_complete: boolean
+  road_ops: number        // incremented on each create/update; cron resets to 0 at midnight
   created_at: string
   university?: University
   department?: Department

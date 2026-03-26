@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -57,6 +57,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|api/|auth/).*)',
   ],
 }
-
-// Next.js 16 alias
-export { proxy as middleware }
