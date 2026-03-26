@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 
 interface OrangeScrollIndicatorProps {
   targetId?: string
@@ -9,6 +10,10 @@ interface OrangeScrollIndicatorProps {
 }
 
 export function OrangeScrollIndicator({ targetId, className }: OrangeScrollIndicatorProps) {
+  const { scrollYProgress } = useScroll()
+  // Rotate the text ring based on scroll — full 360 per page scroll
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 720])
+
   const handleClick = () => {
     if (targetId) {
       const element = document.getElementById(targetId)
@@ -24,15 +29,16 @@ export function OrangeScrollIndicator({ targetId, className }: OrangeScrollIndic
     <button
       onClick={handleClick}
       className={cn(
-        'relative w-[100px] h-[100px] flex items-center justify-center',
+        'relative w-[80px] h-[80px] md:w-[100px] md:h-[100px] flex items-center justify-center',
         className
       )}
       aria-label="Scroll down"
     >
-      {/* Rotating text ring */}
-      <svg
-        className="absolute inset-0 w-full h-full animate-rotate-text"
+      {/* Scroll-synced rotating text ring */}
+      <motion.svg
+        className="absolute inset-0 w-full h-full"
         viewBox="0 0 100 100"
+        style={{ rotate }}
       >
         <defs>
           <path
@@ -49,11 +55,11 @@ export function OrangeScrollIndicator({ targetId, className }: OrangeScrollIndic
             SCROLL DOWN • SCROLL DOWN • SCROLL DOWN •
           </textPath>
         </text>
-      </svg>
+      </motion.svg>
 
       {/* Center orange button */}
-      <div className="w-11 h-11 rounded-full bg-[#F97316] hover:bg-[#EA6B0A] transition-colors flex items-center justify-center cursor-pointer">
-        <ChevronDown className="w-5 h-5 text-black" strokeWidth={2.5} />
+      <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-[#F97316] hover:bg-[#EA6B0A] transition-colors flex items-center justify-center cursor-pointer">
+        <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={2.5} />
       </div>
     </button>
   )

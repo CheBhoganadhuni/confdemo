@@ -100,26 +100,26 @@ export function RoadView({ road, dailyProgress }: RoadViewProps) {
       className="flex flex-col h-full"
     >
       {/* Road header */}
-      <header className="px-8 pt-8 pb-6 border-b border-[#1F1F1F]">
+      <header className="px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 border-b border-[#1F1F1F]">
         <div className="flex items-center gap-3">
-          <Icon className="size-6" style={{ color: road.color }} />
-          <h1 className="font-black text-white text-2xl">{road.name}</h1>
+          <Icon className="size-5 sm:size-6" style={{ color: road.color }} />
+          <h1 className="font-black text-white text-xl sm:text-2xl">{road.name}</h1>
         </div>
-        <p className="text-[#555] text-sm mt-1">
+        <p className="text-[#555] text-xs sm:text-sm mt-1">
           {components.length} components · ~{totalHours}h total · {progressPercent}% complete
         </p>
         {road.type === 'university' && road.creatorName && (
           <p className="text-[#F97316] text-xs mt-1">by {road.creatorName}</p>
         )}
-        <Progress 
-          value={progressPercent} 
+        <Progress
+          value={progressPercent}
           className="mt-3 h-1.5 bg-[#1F1F1F]"
           style={{ '--progress-color': road.color } as React.CSSProperties}
         />
       </header>
 
       {/* Component journey */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 pb-24">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 pb-24">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 className="size-5 animate-spin text-[#555]" />
@@ -161,14 +161,14 @@ export function RoadView({ road, dailyProgress }: RoadViewProps) {
       </div>
 
       {/* Today's progress bar - sticky bottom */}
-      <div className="sticky bottom-0 border-t border-[#1F1F1F] bg-[#0A0A0A] px-8 py-3">
-        <div className="flex items-center justify-between">
+      <div className="sticky bottom-0 border-t border-[#1F1F1F] bg-[#0A0A0A] px-4 sm:px-8 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <span className="text-white text-xs font-bold">
             Today: {todayMinutes} / {dailyProgress.dailyLimit} min
           </span>
           {dailyLimitReached && (
             <span className="text-[#F97316] text-xs">
-              Daily limit reached — come back tomorrow
+              Daily limit reached
             </span>
           )}
         </div>

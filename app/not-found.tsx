@@ -27,7 +27,7 @@ export default function NotFound() {
       </motion.div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full z-50 px-8 py-6 flex justify-between items-center bg-transparent">
+      <nav className="fixed top-0 left-0 w-full z-50 px-4 sm:px-8 py-4 sm:py-6 flex justify-between items-center bg-transparent">
         <Link
           href="/"
           className="text-2xl font-extrabold tracking-tighter text-[#F97316] uppercase"
@@ -58,10 +58,10 @@ export default function NotFound() {
             <span className="h-px w-8 bg-[#584237] opacity-30" />
           </div>
 
-          <h2 className="text-white font-black text-5xl md:text-7xl tracking-tighter">
+          <h2 className="text-white font-black text-3xl sm:text-5xl md:text-7xl tracking-tighter">
             Lost on the map.
           </h2>
-          <p className="text-[#A0A0A0] font-light text-xl md:text-3xl tracking-tight">
+          <p className="text-[#A0A0A0] font-light text-lg sm:text-xl md:text-3xl tracking-tight">
             This road doesn&apos;t exist.
           </p>
 
@@ -110,7 +110,7 @@ export default function NotFound() {
       </main>
 
       {/* Footer Archive Info */}
-      <footer className="fixed bottom-0 left-0 w-full z-40 px-12 py-8 flex flex-col md:flex-row justify-between items-center bg-transparent pointer-events-none opacity-40">
+      <footer className="fixed bottom-0 left-0 w-full z-40 px-4 sm:px-12 py-4 sm:py-8 flex flex-col md:flex-row justify-between items-center bg-transparent pointer-events-none opacity-40">
         <div className="font-light text-[10px] uppercase tracking-widest text-white/30">
           © 2024 Jnana Sethu Archive
         </div>
@@ -121,7 +121,7 @@ export default function NotFound() {
       </footer>
 
       {/* Decorative Scroll Indicator */}
-      <div className="fixed bottom-12 right-12 z-50 pointer-events-none">
+      <div className="fixed bottom-8 right-4 sm:bottom-12 sm:right-12 z-50 pointer-events-none">
         <div className="relative w-16 h-16 flex items-center justify-center">
           <motion.svg
             className="absolute inset-0 w-full h-full opacity-20"
