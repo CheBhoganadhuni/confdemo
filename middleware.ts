@@ -1,14 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
 
-// Routes that require authentication
-const AUTH_ROUTES = ['/world', '/road', '/profile']
-
-// Routes that require specific roles
-const ADMIN_ROUTES = ['/admin']
-const FACULTY_ROUTES = ['/faculty']
+// Check if Supabase is configured
+const isSupabaseConfigured = () => {
+  return !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+}
 
 export async function middleware(request: NextRequest) {
+  // If Supabase is not configured, allow all requests through
+  // This enables development without Supabase setup
+  if (!isSupabaseConfigured()) {
+    return NextResponse.next()
+  }
+
+  // Only import and use Supabase middleware when configured
+  const { updateSession } = await import('@/lib/supabase/middleware')
+  
   const { pathname } = request.nextUrl
 
   // Refresh session on every request
@@ -19,7 +28,11 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Check if route requires authentication
+  // Routes that require authentication
+  const AUTH_ROUTES = ['/world', '/road', '/profile']
+  const ADMIN_ROUTES = ['/admin']
+  const FACULTY_ROUTES = ['/faculty']
+
   const isAuthRoute = AUTH_ROUTES.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
   )

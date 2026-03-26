@@ -294,11 +294,14 @@ export function ProfileClient({ data }: ProfileClientProps) {
               return (
                 <div
                   key={road.id}
-                  className="bg-[#111] border border-[#1F1F1F] rounded-sm p-4 hover:border-[#333] transition-colors flex"
+                  className="group relative bg-[#111] border border-[#1F1F1F] rounded-sm p-4 hover:border-[#333] transition-all duration-300 flex overflow-hidden"
                 >
+                  {/* Top orange bar on hover */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#F97316] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                  
                   {/* Left Color Bar */}
                   <div
-                    className="w-[3px] rounded-l-sm mr-4 flex-shrink-0"
+                    className="w-[3px] rounded-l-sm mr-4 flex-shrink-0 transition-all duration-300 group-hover:w-[4px]"
                     style={{ backgroundColor: road.color }}
                   />
 

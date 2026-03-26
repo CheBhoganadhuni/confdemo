@@ -210,17 +210,20 @@ function RoadCard({ road, isSelected, onSelect }: RoadCardProps) {
     <button
       onClick={onSelect}
       className={cn(
-        'w-full mb-1 px-3 py-3 rounded-sm cursor-pointer transition-colors group text-left flex items-center gap-3',
+        'relative w-full mb-1 px-3 py-3 rounded-sm cursor-pointer transition-all duration-300 group text-left flex items-center gap-3 overflow-hidden',
         isSelected 
           ? 'bg-[#111]' 
           : 'hover:bg-[#111]'
       )}
     >
+      {/* Top orange bar on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#F97316] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+      
       {/* Left color bar */}
       <div 
         className={cn(
-          'w-1 self-stretch rounded-l-sm',
-          isSelected ? 'w-1.5' : 'w-1'
+          'w-1 self-stretch rounded-l-sm transition-all duration-300',
+          isSelected ? 'w-1.5' : 'w-1 group-hover:w-1.5'
         )}
         style={{ backgroundColor: road.color }}
       />

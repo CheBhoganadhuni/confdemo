@@ -138,10 +138,12 @@ function HomeContent() {
               ].map((stat, index) => (
                 <div
                   key={stat.label}
-                  className={`py-6 text-right ${index !== 0 ? 'border-t border-[#1F1F1F]' : ''} w-48`}
+                  className={`group relative py-6 pr-4 text-right ${index !== 0 ? 'border-t border-[#1F1F1F]' : ''} w-48 transition-all duration-300 cursor-default`}
                 >
-                  <div className="text-5xl font-black text-white">{stat.number}</div>
-                  <div className="text-[10px] tracking-widest uppercase text-[#555] mt-1">
+                  {/* Orange right bar on hover */}
+                  <div className="absolute right-0 top-0 bottom-0 w-[3px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top" />
+                  <div className="text-5xl font-black text-white group-hover:text-[#F97316] transition-colors duration-300">{stat.number}</div>
+                  <div className="text-[10px] tracking-widest uppercase text-[#555] mt-1 group-hover:text-[#A0A0A0] transition-colors duration-300">
                     {stat.label}
                   </div>
                 </div>
@@ -193,10 +195,12 @@ function HomeContent() {
               ].map((item, index) => (
                 <div
                   key={item.num}
-                  className={`py-8 ${index !== 2 ? 'border-b border-[#D5D5D3]' : ''}`}
+                  className={`group relative py-8 pl-4 -ml-4 transition-all duration-300 ${index !== 2 ? 'border-b border-[#D5D5D3]' : ''}`}
                 >
+                  {/* Orange left bar on hover */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top" />
                   <span className="font-mono text-xs text-[#F97316] mb-3 block">{item.num}</span>
-                  <h3 className="font-bold text-[#111] text-xl mb-2">{item.title}</h3>
+                  <h3 className="font-bold text-[#111] text-xl mb-2 group-hover:text-[#F97316] transition-colors duration-300">{item.title}</h3>
                   <p className="text-[#666] text-base">{item.desc}</p>
                 </div>
               ))}
@@ -243,10 +247,12 @@ function HomeContent() {
             ].map((col, index) => (
               <div
                 key={col.num}
-                className={`px-6 py-8 ${index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''} ${index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''}`}
+                className={`group relative px-6 py-8 transition-all duration-300 ${index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''} ${index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''}`}
               >
+                {/* Orange top bar on hover */}
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F97316] scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                 <span className="text-xs font-mono text-[#F97316] mb-4 block">{col.num}</span>
-                <h3 className="font-bold text-white text-xl mb-3">{col.title}</h3>
+                <h3 className="font-bold text-white text-xl mb-3 group-hover:text-[#F97316] transition-colors duration-300">{col.title}</h3>
                 <p className="text-[#A0A0A0] text-sm leading-relaxed">{col.desc}</p>
               </div>
             ))}

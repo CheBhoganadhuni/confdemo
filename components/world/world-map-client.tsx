@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { CityNode } from './city-node'
 import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
+import { PolyBackground } from '@/components/ui/poly-background'
 import type { WorldCity, WorldLevel } from '@/lib/data/mock-world'
 
 interface WorldMapClientProps {
@@ -166,6 +167,10 @@ export function WorldMapClient({
                 </defs>
                 <rect width="100%" height="100%" fill="url(#topo)" />
               </svg>
+              
+              {/* Scroll-reactive poly shapes */}
+              <PolyBackground variant="corner-right" className="text-[#F97316] opacity-5" />
+              <PolyBackground variant="corner-left" className="text-white opacity-3" />
 
               {/* Map content with pan offset */}
               <div 

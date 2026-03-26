@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
 
@@ -9,6 +10,36 @@ interface OrangeScrollIndicatorProps {
 }
 
 export function OrangeScrollIndicator({ targetId, className }: OrangeScrollIndicatorProps) {
+  const [rotation, setRotation] = useState(0)
+  const rafRef = useRef<number>()
+  const lastScrollY = useRef(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (rafRef.current) return
+      
+      rafRef.current = requestAnimationFrame(() => {
+        const scrollY = window.scrollY
+        const delta = scrollY - lastScrollY.current
+        
+        // Rotate based on scroll direction and amount
+        // Positive delta = scrolling down = rotate clockwise
+        // The rotation accumulates with scroll
+        setRotation(prev => prev + delta * 0.3)
+        
+        lastScrollY.current = scrollY
+        rafRef.current = undefined
+      })
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
   const handleClick = () => {
     if (targetId) {
       const element = document.getElementById(targetId)
@@ -29,9 +60,10 @@ export function OrangeScrollIndicator({ targetId, className }: OrangeScrollIndic
       )}
       aria-label="Scroll down"
     >
-      {/* Rotating text ring */}
+      {/* Rotating text ring - rotates on scroll */}
       <svg
-        className="absolute inset-0 w-full h-full animate-rotate-text"
+        className="absolute inset-0 w-full h-full transition-transform duration-150 ease-out"
+        style={{ transform: `rotate(${rotation}deg)` }}
         viewBox="0 0 100 100"
       >
         <defs>
