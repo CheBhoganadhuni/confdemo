@@ -231,15 +231,25 @@ export function RoadBuilderClient({ cities, userRoadCount, maxRoads }: RoadBuild
                         <span className="text-xs" style={{ color: city.color }}>{city.icon}</span>
                         <span className="text-white text-sm font-medium">{city.name}</span>
                       </div>
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation()
+                          e.preventDefault()
                           addAllFromCity(city.id)
                         }}
-                        className="text-[#F97316] text-xs hover:underline mr-2"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            addAllFromCity(city.id)
+                          }
+                        }}
+                        className="text-[#F97316] text-xs hover:underline mr-2 cursor-pointer"
                       >
                         Add all
-                      </button>
+                      </span>
                     </AccordionTrigger>
                     <AccordionContent className="pb-0">
                       <div className="space-y-1">
