@@ -183,7 +183,7 @@ export interface Notification {
 
 // Computed/joined types used in UI
 export interface CityWithProgress extends City {
-  levels: Level[]
+  levels: LevelWithProgress[]
   completion_percent: number
   completed_levels: number
   total_levels: number
@@ -195,6 +195,7 @@ export interface LevelWithProgress extends Level {
   completion_percent: number
   completed_count: number
   total_count: number
+  estimated_hours: number
   estimated_hours_remaining: number
 }
 

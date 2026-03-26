@@ -1,66 +1,129 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { WorldMapClient } from '@/components/world/world-map-client'
-import { 
-  MOCK_CITIES, 
-  CITY_CONNECTIONS,
-  getLevelsForCity,
-  type WorldCity,
-  type WorldLevel
-} from '@/lib/data/mock-world'
+import type { CityWithProgress, LevelWithProgress } from '@/lib/types/database'
 
 export const metadata = {
   title: 'World Map | Jnana Sethu',
   description: 'Explore the learning landscape. Navigate through cities, levels, and components.',
 }
 
-async function getWorldData() {
-  const supabase = await createClient()
-  
-  // If Supabase is connected, fetch real data
-  if (supabase) {
-    // TODO: Replace with actual queries when Supabase is connected
-    // const { data: cities } = await supabase
-    //   .from('cities')
-    //   .select('*, levels(count)')
-    //   .eq('published', true)
-    //   .order('order_index')
-  }
-  
-  // For now, use mock data
-  const cities = MOCK_CITIES
-  const connections = CITY_CONNECTIONS
-  
-  // Build levels map
-  const levelsByCity: Record<string, WorldLevel[]> = {}
-  for (const city of cities) {
-    levelsByCity[city.id] = getLevelsForCity(city.id)
-  }
-  
-  return {
-    cities,
-    connections,
-    levelsByCity,
-    isAuthenticated: false, // Will be true when Supabase is connected
-  }
-}
-
 export default async function WorldPage() {
   const supabase = await createClient()
-  
-  // Auth check - for now, allow access in dev mode
-  // When Supabase is connected, uncomment:
-  // const { data: { user } } = await supabase.auth.getUser()
-  // if (!user) {
-  //   redirect('/')
-  // }
-  
-  const worldData = await getWorldData()
-  
-  // In production with Supabase, redirect if not authenticated
-  // if (!worldData.isAuthenticated) {
-  //   redirect('/')
-  // }
-  
-  return <WorldMapClient {...worldData} />
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/')
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('university_id')
+    .eq('id', user.id)
+    .single()
+
+  // Fetch all published cities
+  const { data: rawCities } = await supabase
+    .from('cities')
+    .select('*')
+    .eq('is_published', true)
+    .order('created_at')
+
+  if (!rawCities || rawCities.length === 0) {
+    return <WorldMapClient cities={[]} userId={user.id} universityId={userData?.university_id ?? undefined} />
+  }
+
+  const cityIds = rawCities.map((c: { id: string }) => c.id)
+
+  // Fetch published levels for all cities
+  const { data: rawLevels } = await supabase
+    .from('levels')
+    .select('*')
+    .eq('is_published', true)
+    .in('city_id', cityIds)
+    .order('sequence_order')
+
+  const levelIds = (rawLevels ?? []).map((l: { id: string }) => l.id)
+
+  // Fetch level_components with component durations in one query
+  const levelCompsRes = levelIds.length > 0
+    ? await supabase
+        .from('level_components')
+        .select('level_id, component_id, components(duration_minutes)')
+        .in('level_id', levelIds)
+    : { data: [] }
+
+  const levelComps = (levelCompsRes.data ?? []) as Array<{
+    level_id: string
+    component_id: string
+    components: { duration_minutes: number } | null
+  }>
+
+  // Fetch user's completed components
+  const { data: userProgress } = await supabase
+    .from('user_component_progress')
+    .select('component_id')
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+
+  const completedCompIds = new Set((userProgress ?? []).map((p: { component_id: string }) => p.component_id))
+
+  // Build component map per level
+  const compsByLevel = new Map<string, Array<{ component_id: string; duration_minutes: number }>>()
+  for (const lc of levelComps) {
+    if (!compsByLevel.has(lc.level_id)) compsByLevel.set(lc.level_id, [])
+    compsByLevel.get(lc.level_id)!.push({
+      component_id: lc.component_id,
+      duration_minutes: lc.components?.duration_minutes ?? 30,
+    })
+  }
+
+  // Build LevelWithProgress for each level
+  const levelsByCity = new Map<string, LevelWithProgress[]>()
+  for (const level of (rawLevels ?? [])) {
+    const comps = compsByLevel.get(level.id) ?? []
+    const totalCount = comps.length
+    const completedCount = comps.filter(c => completedCompIds.has(c.component_id)).length
+    const totalMinutes = comps.reduce((sum, c) => sum + c.duration_minutes, 0)
+    const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+    const remainingMinutes = comps
+      .filter(c => !completedCompIds.has(c.component_id))
+      .reduce((sum, c) => sum + c.duration_minutes, 0)
+
+    const levelWithProgress: LevelWithProgress = {
+      ...level,
+      components: [],
+      completion_percent: completionPercent,
+      completed_count: completedCount,
+      total_count: totalCount,
+      estimated_hours: Math.round((totalMinutes / 60) * 10) / 10,
+      estimated_hours_remaining: Math.round((remainingMinutes / 60) * 10) / 10,
+    }
+
+    if (!levelsByCity.has(level.city_id)) levelsByCity.set(level.city_id, [])
+    levelsByCity.get(level.city_id)!.push(levelWithProgress)
+  }
+
+  // Build CityWithProgress
+  const cities: CityWithProgress[] = rawCities.map((city: Record<string, unknown>) => {
+    const levels = levelsByCity.get(city.id as string) ?? []
+    const totalLevels = levels.length
+    const completedLevels = levels.filter(l => l.completion_percent === 100).length
+    const completionPercent = totalLevels > 0 ? Math.round((completedLevels / totalLevels) * 100) : 0
+
+    return {
+      ...city,
+      levels,
+      completion_percent: completionPercent,
+      completed_levels: completedLevels,
+      total_levels: totalLevels,
+      active_student_count: 0,
+    } as CityWithProgress
+  })
+
+  return (
+    <WorldMapClient
+      cities={cities}
+      userId={user.id}
+      universityId={userData?.university_id ?? undefined}
+    />
+  )
 }

@@ -9,22 +9,63 @@ import { Input } from '@/components/ui/input'
 import { CityNode } from './city-node'
 import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
-import type { WorldCity, WorldLevel } from '@/lib/data/mock-world'
+import type { CityWithProgress } from '@/lib/types/database'
 
-interface WorldMapClientProps {
-  cities: WorldCity[]
-  connections: [string, string][]
-  levelsByCity: Record<string, WorldLevel[]>
-  isAuthenticated: boolean
+// UI-specific position + size fields merged onto real city data
+export type WorldCityMapped = CityWithProgress & {
+  position: { left: string; top: string }
+  size: 'small' | 'normal' | 'large'
 }
 
-export function WorldMapClient({
-  cities,
-  connections,
-  levelsByCity,
-}: WorldMapClientProps) {
+// Map from city slug → position + size on the world map canvas
+const CITY_LAYOUT: Record<string, { position: { left: string; top: string }; size: 'small' | 'normal' | 'large' }> = {
+  'beginners-picnic':  { position: { left: '12%', top: '65%' }, size: 'normal' },
+  'blueprint-factory': { position: { left: '22%', top: '30%' }, size: 'normal' },
+  'algorithmic-jungle':{ position: { left: '40%', top: '20%' }, size: 'large'  },
+  'control-tower':     { position: { left: '60%', top: '15%' }, size: 'normal' },
+  'signal-city':       { position: { left: '75%', top: '35%' }, size: 'normal' },
+  'data-vault':        { position: { left: '55%', top: '55%' }, size: 'large'  },
+  'engine-room':       { position: { left: '30%', top: '60%' }, size: 'normal' },
+  'api-district':      { position: { left: '48%', top: '72%' }, size: 'normal' },
+  'cloud-deck':        { position: { left: '68%', top: '68%' }, size: 'normal' },
+  'git-garage':        { position: { left: '82%', top: '55%' }, size: 'small'  },
+}
+
+// Default position for any city slug not in the layout map
+const DEFAULT_POSITION = { left: '50%', top: '50%' }
+const DEFAULT_SIZE = 'normal' as const
+
+// Connections between city slugs for SVG lines
+const CITY_CONNECTIONS: [string, string][] = [
+  ['beginners-picnic', 'engine-room'],
+  ['beginners-picnic', 'blueprint-factory'],
+  ['blueprint-factory', 'algorithmic-jungle'],
+  ['algorithmic-jungle', 'control-tower'],
+  ['control-tower', 'signal-city'],
+  ['algorithmic-jungle', 'data-vault'],
+  ['engine-room', 'api-district'],
+  ['data-vault', 'api-district'],
+  ['data-vault', 'cloud-deck'],
+  ['signal-city', 'git-garage'],
+  ['cloud-deck', 'git-garage'],
+]
+
+interface WorldMapClientProps {
+  cities: CityWithProgress[]
+  userId: string
+  universityId?: string
+}
+
+export function WorldMapClient({ cities }: WorldMapClientProps) {
+  // Merge DB cities with UI layout data
+  const mappedCities: WorldCityMapped[] = cities.map(city => ({
+    ...city,
+    position: CITY_LAYOUT[city.slug]?.position ?? DEFAULT_POSITION,
+    size: CITY_LAYOUT[city.slug]?.size ?? DEFAULT_SIZE,
+  }))
+
   const [view, setView] = useState<'world' | 'city'>('world')
-  const [selectedCity, setSelectedCity] = useState<WorldCity | null>(null)
+  const [selectedCity, setSelectedCity] = useState<WorldCityMapped | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
@@ -33,12 +74,12 @@ export function WorldMapClient({
   const dragStart = useRef({ x: 0, y: 0 })
   const offsetStart = useRef({ x: 0, y: 0 })
 
-  const filteredCities = cities.filter(city =>
-    city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredCities = mappedCities.filter(city =>
+    city.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     city.slug.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleCityClick = useCallback((city: WorldCity) => {
+  const handleCityClick = useCallback((city: WorldCityMapped) => {
     setSelectedCity(city)
     setView('city')
   }, [])
@@ -48,7 +89,6 @@ export function WorldMapClient({
     setSelectedCity(null)
   }, [])
 
-  // Mouse drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-city-node]')) return
     setIsDragging(true)
@@ -70,7 +110,6 @@ export function WorldMapClient({
     setIsDragging(false)
   }, [])
 
-  // Touch drag handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('[data-city-node]')) return
     const touch = e.touches[0]
@@ -94,12 +133,9 @@ export function WorldMapClient({
     setIsDragging(false)
   }, [])
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && view === 'city') {
-        handleBackToWorld()
-      }
+      if (e.key === 'Escape' && view === 'city') handleBackToWorld()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -150,7 +186,7 @@ export function WorldMapClient({
         </button>
       </header>
 
-      {/* Mobile search bar (expandable) */}
+      {/* Mobile search bar */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
@@ -206,7 +242,7 @@ export function WorldMapClient({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {/* Grid pattern background */}
+              {/* Grid pattern */}
               <div
                 className="absolute inset-0 opacity-[0.03]"
                 style={{
@@ -218,11 +254,8 @@ export function WorldMapClient({
                 }}
               />
 
-              {/* Topo pattern overlay */}
-              <svg
-                className="absolute inset-0 size-full opacity-[0.02]"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+              {/* Topo pattern */}
+              <svg className="absolute inset-0 size-full opacity-[0.02]" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                   <pattern id="topo" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
                     <circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="0.5" />
@@ -238,16 +271,16 @@ export function WorldMapClient({
                 className="absolute inset-0"
                 style={{
                   transform: `translate(${mapOffset.x}px, ${mapOffset.y}px)`,
-                  transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+                  transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                 }}
               >
                 <CityConnections
-                  cities={cities}
-                  connections={connections}
-                  highlightCity={searchQuery ? filteredCities.map(c => c.id) : undefined}
+                  cities={mappedCities}
+                  connections={CITY_CONNECTIONS}
+                  highlightCity={searchQuery ? filteredCities.map(c => c.slug) : undefined}
                 />
 
-                {cities.map((city) => (
+                {mappedCities.map((city) => (
                   <CityNode
                     key={city.id}
                     city={city}
@@ -257,7 +290,6 @@ export function WorldMapClient({
                 ))}
               </div>
 
-              {/* Empty state for search */}
               {searchQuery && filteredCities.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="rounded-lg bg-[#111]/90 px-6 py-4 text-center backdrop-blur">
@@ -278,7 +310,7 @@ export function WorldMapClient({
               {selectedCity && (
                 <CityView
                   city={selectedCity}
-                  levels={levelsByCity[selectedCity.id] || []}
+                  levels={selectedCity.levels}
                   onBack={handleBackToWorld}
                 />
               )}

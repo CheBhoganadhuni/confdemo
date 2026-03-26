@@ -1,17 +1,17 @@
 'use client'
 
-import type { WorldCity } from '@/lib/data/mock-world'
+import type { WorldCityMapped } from './world-map-client'
 
 interface CityConnectionsProps {
-  cities: WorldCity[]
+  cities: WorldCityMapped[]
   connections: [string, string][]
-  highlightCity?: string[]
+  highlightCity?: string[]  // city slugs to highlight
 }
 
 export function CityConnections({ cities, connections, highlightCity }: CityConnectionsProps) {
-  // Create a map of city positions
-  const cityPositions = cities.reduce((acc, city) => {
-    acc[city.id] = {
+  // Build slug → position map
+  const positionBySlug = cities.reduce((acc, city) => {
+    acc[city.slug] = {
       left: parseFloat(city.position.left),
       top: parseFloat(city.position.top),
     }
@@ -19,7 +19,7 @@ export function CityConnections({ cities, connections, highlightCity }: CityConn
   }, {} as Record<string, { left: number; top: number }>)
 
   return (
-    <svg 
+    <svg
       className="absolute inset-0 size-full pointer-events-none"
       style={{ zIndex: 0 }}
     >
@@ -30,20 +30,20 @@ export function CityConnections({ cities, connections, highlightCity }: CityConn
           <stop offset="100%" stopColor="#F97316" stopOpacity="0.1" />
         </linearGradient>
       </defs>
-      
-      {connections.map(([fromId, toId], index) => {
-        const from = cityPositions[fromId]
-        const to = cityPositions[toId]
-        
+
+      {connections.map(([fromSlug, toSlug], index) => {
+        const from = positionBySlug[fromSlug]
+        const to = positionBySlug[toSlug]
+
         if (!from || !to) return null
-        
-        const isHighlighted = highlightCity 
-          ? highlightCity.includes(fromId) && highlightCity.includes(toId)
+
+        const isHighlighted = highlightCity
+          ? highlightCity.includes(fromSlug) && highlightCity.includes(toSlug)
           : true
-        
+
         return (
           <line
-            key={`${fromId}-${toId}-${index}`}
+            key={`${fromSlug}-${toSlug}-${index}`}
             x1={`${from.left}%`}
             y1={`${from.top}%`}
             x2={`${to.left}%`}
