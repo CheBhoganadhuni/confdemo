@@ -59,16 +59,8 @@ export async function POST(req: Request) {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  let todayMinutes = user.today_time_minutes ?? 0
-
-  // Reset daily counter if it's a new day
-  if ((user as any).today_date !== today) {
-    todayMinutes = 0
-    await supabase
-      .from('users')
-      .update({ today_time_minutes: 0, today_date: today })
-      .eq('id', userId)
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let todayMinutes = (user as any).today_date !== today ? 0 : (user.today_time_minutes ?? 0)
 
   const duration = component.duration_minutes ?? 0
 
@@ -95,13 +87,20 @@ export async function POST(req: Request) {
 
   const newTodayMinutes = todayMinutes + duration
 
-  // Update user time — XP is reserved for quizzes (Phase 2)
+  // Update user time
   await supabase.from('users').update({
     today_time_minutes: newTodayMinutes,
     today_date: today,
   }).eq('id', userId)
 
-  // Check level completion (no XP bonus — just for toast notification)
+  // Auto-set bolt_status.study = true when study time hits 60 min
+  if (newTodayMinutes >= 60) {
+    await supabase
+      .from('bolt_status')
+      .upsert({ user_id: userId, study: true }, { onConflict: 'user_id' })
+  }
+
+  // Check level completion for toast notification
   let levelCompleted = false
   let levelSlug: string | undefined
 
@@ -112,6 +111,7 @@ export async function POST(req: Request) {
 
   for (const link of levelLinks ?? []) {
     const levelId = link.level_id
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const level = (link as any).levels
 
     const { data: siblingComps } = await supabase
@@ -119,8 +119,8 @@ export async function POST(req: Request) {
       .select('component_id')
       .eq('level_id', levelId)
 
-    const siblingIds = (siblingComps ?? []).map(c => c.component_id)
-    if (siblingIds.length === 0) continue
+    const siblingIds = (siblingComps ?? []).map((c: { component_id: string }) => c.component_id)
+    if (!siblingIds.length) continue
 
     const { count: doneCount } = await supabase
       .from('user_component_progress')

@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const action = searchParams.get('action') // 'sync_github' | 'sync_linkedin' | null
+  const next = searchParams.get('next') ?? '/world'
 
   if (!code) return NextResponse.redirect(`${origin}/`)
 
@@ -15,9 +17,40 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(`${origin}/?error=auth_failed`)
 
+  // ── Identity linking callbacks (user is already logged in) ─────────────────
+  if (action === 'sync_github' || action === 'sync_linkedin') {
+    const { data: identitiesData } = await supabase.auth.getUserIdentities()
+    const identities = identitiesData?.identities ?? []
+
+    if (action === 'sync_github') {
+      const gh = identities.find(i => i.provider === 'github')
+      const login =
+        (gh?.identity_data?.user_name as string | undefined) ??
+        (gh?.identity_data?.preferred_username as string | undefined) ??
+        (gh?.identity_data?.login as string | undefined)
+      if (login) {
+        await supabase.from('users').update({ github_id: login }).eq('id', user.id)
+      }
+    }
+
+    if (action === 'sync_linkedin') {
+      const li = identities.find(i => i.provider === 'linkedin_oidc')
+      const linkedinId =
+        (li?.identity_data?.sub as string | undefined) ??
+        (li?.identity_data?.id as string | undefined) ??
+        (li?.identity_data?.email as string | undefined)
+      if (linkedinId) {
+        await supabase.from('users').update({ linkedin_id: linkedinId }).eq('id', user.id)
+      }
+    }
+
+    // Return to wherever the user came from (e.g. /profile)
+    return NextResponse.redirect(`${origin}${next}`)
+  }
+
+  // ── Normal login / sign-up flow ────────────────────────────────────────────
   const email = user.email!.toLowerCase()
 
-  // Step 1: Check if user row already exists in public.users
   const { data: existingUser } = await supabase
     .from('users')
     .select('id, role, university_id, universities(access)')
@@ -25,21 +58,18 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (existingUser) {
-    // Returning user — check they are a student
     if (existingUser.role !== 'student') {
       await supabase.auth.signOut()
       return NextResponse.redirect(`${origin}/?error=not_a_student`)
     }
-    // Check university access
     const univ = existingUser.universities as { access: boolean } | null
     if (univ && univ.access === false) {
       return NextResponse.redirect(`${origin}/?error=suspended`)
     }
-    // All good — into the app
     return NextResponse.redirect(`${origin}/world`)
   }
 
-  // Step 2: New user — check whitelist
+  // New user — check whitelist
   const { data: preReg } = await supabase
     .from('pre_registered_students')
     .select('*, universities(id, access), departments(id)')
@@ -47,19 +77,16 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (!preReg) {
-    // Not on whitelist → block
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/?error=not_registered`)
   }
 
-  // Check university access
   const univ = preReg.universities as { id: string; access: boolean } | null
   if (univ && univ.access === false) {
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/?error=suspended`)
   }
 
-  // Step 3: Create user row
   const name =
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||

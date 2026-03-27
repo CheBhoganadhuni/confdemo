@@ -1,6 +1,31 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api/require-auth'
 
+// ── Helper: check if a city is fully completed by a user ──────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function isCityComplete(supabase: any, userId: string, citySlug: string): Promise<boolean> {
+  const { data: city } = await supabase
+    .from('cities').select('id').eq('slug', citySlug).single()
+  if (!city) return false
+
+  const { data: levels } = await supabase
+    .from('levels').select('id').eq('city_id', city.id).eq('is_published', true)
+  const levelIds = (levels ?? []).map((l: { id: string }) => l.id)
+  if (!levelIds.length) return false
+
+  const { data: levelComps } = await supabase
+    .from('level_components').select('component_id').in('level_id', levelIds)
+  const compIds = (levelComps ?? []).map((lc: { component_id: string }) => lc.component_id)
+  if (!compIds.length) return false
+
+  const { count } = await supabase
+    .from('user_component_progress')
+    .select('component_id', { count: 'exact', head: true })
+    .eq('user_id', userId).eq('status', 'completed').in('component_id', compIds)
+
+  return (count ?? 0) >= compIds.length
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requireAuth()
@@ -14,10 +39,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'task_id required' }, { status: 400 })
     }
 
-    // Verify task exists and is active
+    // ── Step 1: Get task ───────────────────────────────────────────────────────
     const { data: task, error: taskError } = await supabase
       .from('daily_tasks')
-      .select('*')
+      .select('id, type, slug, unlock_after_city_slug')
       .eq('id', task_id)
       .eq('is_active', true)
       .single()
@@ -26,32 +51,98 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    // Verify unlock status
-    if (task.unlock_after_city_slug) {
-      const { data: city } = await supabase
-        .from('cities').select('id').eq('slug', task.unlock_after_city_slug).single()
-      if (city) {
-        const { data: levels } = await supabase
-          .from('levels').select('id').eq('city_id', city.id).eq('is_published', true)
-        const levelIds = (levels ?? []).map((l: { id: string }) => l.id)
-        const { data: levelComps } = levelIds.length > 0
-          ? await supabase.from('level_components').select('component_id').in('level_id', levelIds)
-          : { data: [] }
-        const compIds = (levelComps ?? []).map((lc: { component_id: string }) => lc.component_id)
+    // study_time: explicit confirm — only allowed when user has studied >= 60 min
+    if (task.type === 'study_time') {
+      const { data: userRow } = await supabase
+        .from('users').select('today_time_minutes').eq('id', userId).single()
+      if ((userRow?.today_time_minutes ?? 0) < 60) {
+        return NextResponse.json(
+          { error: 'not_enough_study', message: 'Study at least 60 minutes first.' },
+          { status: 400 }
+        )
+      }
+      await supabase
+        .from('bolt_status')
+        .upsert({ user_id: userId, study: true }, { onConflict: 'user_id' })
+      return NextResponse.json({ success: true, task_type: 'study_time' })
+    }
 
-        if (compIds.length > 0) {
-          const { count } = await supabase
-            .from('user_component_progress')
-            .select('component_id', { count: 'exact', head: true })
-            .eq('user_id', userId).eq('status', 'completed').in('component_id', compIds)
-          if ((count ?? 0) < compIds.length) {
-            return NextResponse.json({ error: 'Task not yet unlocked.' }, { status: 403 })
-          }
-        }
+    // ── Step 2: Block if already done this cycle ───────────────────────────────
+    // bolt_status column name === task.type (dsa → dsa, github → github, linkedin → linkedin)
+    // This is intentional: task type IS the column key, so no hardcoded map is needed.
+    const col = task.type as string
+
+    const { data: bolt } = await supabase
+      .from('bolt_status').select('*').eq('user_id', userId).single()
+
+    if (bolt?.[col] === true) {
+      return NextResponse.json(
+        { error: 'already_done', message: 'Already completed for this cycle. Come back after the reset.' },
+        { status: 400 }
+      )
+    }
+
+    // ── Step 3: Hard two-gate check (city complete + account linked) ───────────
+    // This runs on the SERVER for every submission — frontend state is irrelevant.
+    // Gate 1: city completion (uses task.unlock_after_city_slug from DB — dynamic)
+    if (task.unlock_after_city_slug) {
+      const cityDone = await isCityComplete(supabase, userId, task.unlock_after_city_slug)
+      if (!cityDone) {
+        return NextResponse.json(
+          {
+            error: 'city_not_complete',
+            message: `Complete the ${task.unlock_after_city_slug.replace(/-/g, ' ')} city before submitting.`,
+          },
+          { status: 403 }
+        )
       }
     }
 
-    // ── GitHub commit verification ───────────────────────────────────────────
+    // Gate 2: account linked (type-specific — github and linkedin require OAuth connection)
+    if (task.type === 'github') {
+      const { data: userRow } = await supabase
+        .from('users').select('github_id').eq('id', userId).single()
+      if (!userRow?.github_id) {
+        return NextResponse.json(
+          { error: 'account_not_linked', message: 'Connect your GitHub account before submitting a commit.' },
+          { status: 403 }
+        )
+      }
+    }
+
+    if (task.type === 'linkedin') {
+      const { data: userRow } = await supabase
+        .from('users').select('linkedin_id').eq('id', userId).single()
+      if (!userRow?.linkedin_id) {
+        return NextResponse.json(
+          { error: 'account_not_linked', message: 'Connect your LinkedIn account before submitting a post.' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // ── Step 4: Proof URL validation ───────────────────────────────────────────
+
+    // DSA: require a LeetCode or HackerRank URL
+    if (task.type === 'dsa') {
+      if (!proof_url) {
+        return NextResponse.json(
+          { error: 'proof_required', message: 'Paste your LeetCode or HackerRank submission URL.' },
+          { status: 400 }
+        )
+      }
+      const isDsaUrl =
+        (proof_url as string).includes('leetcode.com') ||
+        (proof_url as string).includes('hackerrank.com')
+      if (!isDsaUrl) {
+        return NextResponse.json(
+          { error: 'invalid_url', message: 'Please paste a LeetCode or HackerRank submission URL.' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // GitHub: full commit verification (city + account already confirmed above)
     if (task.type === 'github') {
       if (!proof_url) {
         return NextResponse.json(
@@ -60,44 +151,31 @@ export async function POST(req: Request) {
         )
       }
 
-      // Sanitize + validate structure with regex (belt-and-suspenders — frontend constructs the URL)
       const cleanUrl = (proof_url as string).trim()
-      const commitRegex =
-        /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/commit\/([a-f0-9]{7,40})$/i
+      const commitRegex = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/commit\/([a-f0-9]{7,40})$/i
       const match = cleanUrl.match(commitRegex)
 
       if (!match) {
         return NextResponse.json(
-          {
-            error: 'invalid_url',
-            message: 'Invalid commit URL. Use the form — enter username, repo, and commit SHA separately.',
-          },
+          { error: 'invalid_url', message: 'Invalid commit URL. Use the form — enter username, repo, and SHA separately.' },
           { status: 400 }
         )
       }
 
       const [, owner, repo, sha] = match
-
-      // Call GitHub API to verify the commit is real
       let ghData: Record<string, unknown> = {}
+
       try {
         const ghRes = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/commits/${sha}`,
           {
-            headers: {
-              'User-Agent': 'jnanasethu-app',
-              'Accept': 'application/vnd.github.v3+json',
-            },
+            headers: { 'User-Agent': 'jnanasethu-app', 'Accept': 'application/vnd.github.v3+json' },
             signal: AbortSignal.timeout(6000),
           }
         )
-
         if (ghRes.status === 404) {
           return NextResponse.json(
-            {
-              error: 'commit_not_found',
-              message: 'Commit not found. Double-check the username, repo name, and SHA. Make sure the repo is public.',
-            },
+            { error: 'commit_not_found', message: 'Commit not found. Double-check the username, repo, and SHA. Make sure the repo is public.' },
             { status: 400 }
           )
         }
@@ -109,11 +187,10 @@ export async function POST(req: Request) {
         }
         ghData = await ghRes.json()
       } catch {
-        // Network/timeout — don't block; commit existence already validated by regex if we reach here
         console.warn('GitHub API timeout — skipping date/author checks')
       }
 
-      // Check commit is within 48 hours
+      // Commit must be within 48 hours
       const commitObj = ghData.commit as Record<string, unknown> | undefined
       const authorObj = commitObj?.author as Record<string, unknown> | undefined
       const committerObj = commitObj?.committer as Record<string, unknown> | undefined
@@ -123,142 +200,69 @@ export async function POST(req: Request) {
         const hoursSince = (Date.now() - new Date(rawDate).getTime()) / (1000 * 60 * 60)
         if (hoursSince > 48) {
           return NextResponse.json(
-            {
-              error: 'commit_too_old',
-              message: `This commit is ${Math.floor(hoursSince)} hours old. Submit a commit from the last 48 hours.`,
-            },
+            { error: 'commit_too_old', message: `This commit is ${Math.floor(hoursSince)} hours old. Submit a commit from the last 48 hours.` },
             { status: 400 }
           )
         }
       }
 
-      // Check commit author matches linked GitHub account (if connected)
+      // Commit author must match linked github_id
       const { data: userRow } = await supabase
-        .from('users')
-        .select('github_username')
-        .eq('id', userId)
-        .single()
+        .from('users').select('github_id').eq('id', userId).single()
+      const linkedId = (userRow as { github_id?: string | null } | null)?.github_id
 
-      const linkedUsername = (userRow as { github_username?: string | null } | null)
-        ?.github_username
-
-      if (linkedUsername) {
-        const ghAuthorLogin = (ghData.author as Record<string, unknown> | undefined)
-          ?.login as string | undefined
-        if (
-          ghAuthorLogin &&
-          ghAuthorLogin.toLowerCase() !== linkedUsername.toLowerCase()
-        ) {
+      if (linkedId) {
+        const ghAuthorLogin = (ghData.author as Record<string, unknown> | undefined)?.login as string | undefined
+        if (ghAuthorLogin && ghAuthorLogin.toLowerCase() !== linkedId.toLowerCase()) {
           return NextResponse.json(
-            {
-              error: 'wrong_account',
-              message: `This commit is by @${ghAuthorLogin}, not your connected account (@${linkedUsername}).`,
-            },
+            { error: 'wrong_account', message: `This commit is by @${ghAuthorLogin}, not your connected account (@${linkedId}).` },
             { status: 400 }
           )
         }
       }
     }
 
-    // ── LinkedIn URL validation ──────────────────────────────────────────────
+    // LinkedIn: require a linkedin.com URL (account + city already confirmed above)
     if (task.type === 'linkedin') {
-      if (proof_url) {
-        const isLinkedIn =
-          (proof_url as string).startsWith('https://www.linkedin.com/') ||
-          (proof_url as string).startsWith('https://linkedin.com/')
-        if (!isLinkedIn) {
-          return NextResponse.json(
-            {
-              error: 'invalid_url',
-              message: 'Please paste a LinkedIn post URL (linkedin.com/posts/…)',
-            },
-            { status: 400 }
-          )
-        }
-      }
-    }
-
-    // ── DSA: honor system — basic HTTPS check ───────────────────────────────
-    if (task.type === 'dsa') {
-      if (proof_url && !(proof_url as string).startsWith('https://')) {
+      if (!proof_url) {
         return NextResponse.json(
-          { error: 'invalid_url', message: 'Please provide a valid URL starting with https://' },
+          { error: 'proof_required', message: 'Paste your LinkedIn post URL.' },
+          { status: 400 }
+        )
+      }
+      if (!(proof_url as string).includes('linkedin.com')) {
+        return NextResponse.json(
+          { error: 'invalid_url', message: 'Please paste a LinkedIn post URL (linkedin.com/posts/…)' },
           { status: 400 }
         )
       }
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    // ── Step 5: Mark done in bolt_status ──────────────────────────────────────
+    // col === task.type, which matches the bolt_status column name by convention.
+    // Adding a new task in future: add its type to daily_tasks and add matching
+    // column to bolt_status — this line needs zero changes.
+    await supabase
+      .from('bolt_status')
+      .upsert({ user_id: userId, [col]: true }, { onConflict: 'user_id' })
 
-    // Upsert log (idempotent)
-    await supabase.from('user_daily_logs').upsert(
+    // ── Step 6: Store proof in history ────────────────────────────────────────
+    await supabase.from('user_task_completions').upsert(
       {
         user_id: userId,
         task_id,
-        completed_on: today,
+        last_completed_at: new Date().toISOString(),
         proof_url: proof_url ?? null,
-        proof_verified: task.type === 'github',
+        total_completions: 1,
       },
-      { onConflict: 'user_id,task_id,completed_on' }
+      { onConflict: 'user_id,task_id' }
     )
 
-    // Check if all unlocked tasks are done today
-    const { data: allTasks } = await supabase
-      .from('daily_tasks').select('id, unlock_after_city_slug').eq('is_active', true)
+    // Bolt collection is a separate explicit action — not awarded here
+    return NextResponse.json({ success: true, task_type: task.type })
 
-    const { data: todayLogs } = await supabase
-      .from('user_daily_logs')
-      .select('task_id')
-      .eq('user_id', userId)
-      .eq('completed_on', today)
-
-    const doneTodaySet = new Set(
-      (todayLogs ?? []).map((l: { task_id: string }) => l.task_id)
-    )
-
-    const unlockedTasks = (allTasks ?? []).filter(
-      (t: { unlock_after_city_slug: string | null }) => !t.unlock_after_city_slug
-    )
-    const allUnlockedDone =
-      unlockedTasks.length > 0 &&
-      unlockedTasks.every((t: { id: string }) => doneTodaySet.has(t.id))
-
-    if (!allUnlockedDone) {
-      return NextResponse.json({ success: true, all_done: false, token_earned: false })
-    }
-
-    // All unlocked tasks done — check token eligibility
-    const { data: user } = await supabase
-      .from('users')
-      .select('token_count, current_cycle_start')
-      .eq('id', userId)
-      .single()
-
-    const now = new Date()
-    const cycleStart = user?.current_cycle_start ? new Date(user.current_cycle_start) : null
-    const canEarnToken = !cycleStart || now >= cycleStart
-
-    if (!canEarnToken) {
-      return NextResponse.json({ success: true, all_done: true, token_earned: false })
-    }
-
-    const newTokenCount = (user?.token_count ?? 0) + 1
-    const nextCycleStart = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
-
-    await supabase.from('users').update({
-      token_count: newTokenCount,
-      last_token_at: now.toISOString(),
-      current_cycle_start: nextCycleStart,
-    }).eq('id', userId)
-
-    return NextResponse.json({
-      success: true,
-      all_done: true,
-      token_earned: true,
-      new_token_count: newTokenCount,
-    })
   } catch (error) {
-    console.error('daily-tasks/complete unhandled error:', error)
+    console.error('daily-tasks/complete error:', error)
     return NextResponse.json(
       { error: 'server_error', message: 'Something went wrong. Please try again.' },
       { status: 500 }

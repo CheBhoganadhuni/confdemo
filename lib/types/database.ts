@@ -1,5 +1,4 @@
 // Database types matching the Supabase schema
-// Run scripts/001-schema.sql when Supabase is connected
 
 export interface University {
   id: string
@@ -39,19 +38,28 @@ export interface User {
   department_id?: string
   year?: number
   goal?: string
-  github_username?: string
+  github_id?: string
   linkedin_id?: string
   xp_points: number
   token_count: number
   today_time_minutes: number
   today_date?: string
   last_token_at?: string
-  current_cycle_start?: string
   onboarding_complete: boolean
-  road_ops: number        // incremented on each create/update; cron resets to 0 at midnight
+  road_ops: number
   created_at: string
   university?: University
   department?: Department
+}
+
+export interface BoltStatus {
+  id: string
+  user_id: string
+  study: boolean
+  dsa: boolean
+  github: boolean
+  linkedin: boolean
+  token_sent: boolean
 }
 
 export interface City {
@@ -161,13 +169,13 @@ export interface DailyTask {
   is_active: boolean
 }
 
-export interface UserDailyLog {
+export interface UserTaskCompletion {
   id: string
   user_id: string
   task_id: string
-  completed_on: string
+  last_completed_at: string
   proof_url?: string
-  proof_verified: boolean
+  total_completions: number
 }
 
 export interface Notification {
