@@ -88,8 +88,8 @@ export async function GET() {
     const today = new Date().toISOString().split('T')[0]
     const studyMinutes = userRow.today_date === today ? (userRow.today_time_minutes ?? 0) : 0
 
-    // Auto-set bolt_status.study if study time reached 60 min
-    if (studyMinutes >= 60 && bolt.study === false) {
+    // Auto-set bolt_status.study if study time reached 120 min
+    if (studyMinutes >= 120 && bolt.study === false) {
       await supabase.from('bolt_status').update({ study: true }).eq('user_id', userId)
       bolt.study = true
     }
@@ -112,7 +112,7 @@ export async function GET() {
           : null
 
         const isDone = boltCol
-          ? (task.type === 'study_time' ? (studyMinutes >= 60 || bolt.study) : bolt[boltCol as keyof typeof bolt] === true)
+          ? (task.type === 'study_time' ? (studyMinutes >= 120 || bolt.study) : bolt[boltCol as keyof typeof bolt] === true)
           : false
 
         return {

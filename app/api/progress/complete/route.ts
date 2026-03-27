@@ -93,8 +93,8 @@ export async function POST(req: Request) {
     today_date: today,
   }).eq('id', userId)
 
-  // Auto-set bolt_status.study = true when study time hits 60 min
-  if (newTodayMinutes >= 60) {
+  // Auto-set bolt_status.study = true when study time hits 120 min
+  if (newTodayMinutes >= 120) {
     await supabase
       .from('bolt_status')
       .upsert({ user_id: userId, study: true }, { onConflict: 'user_id' })

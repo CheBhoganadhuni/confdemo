@@ -55,9 +55,9 @@ export async function POST(req: Request) {
     if (task.type === 'study_time') {
       const { data: userRow } = await supabase
         .from('users').select('today_time_minutes').eq('id', userId).single()
-      if ((userRow?.today_time_minutes ?? 0) < 60) {
+      if ((userRow?.today_time_minutes ?? 0) < 120) {
         return NextResponse.json(
-          { error: 'not_enough_study', message: 'Study at least 60 minutes first.' },
+          { error: 'not_enough_study', message: 'Study at least 120 minutes first.' },
           { status: 400 }
         )
       }

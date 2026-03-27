@@ -51,8 +51,8 @@ export default async function ProfilePage() {
   // Today's study minutes
   const todayMinutes = userData.today_date === today ? (userData.today_time_minutes ?? 0) : 0
 
-  // Auto-apply study bolt if 60 min reached
-  const studyDone = todayMinutes >= 60 || bolt.study === true
+  // Auto-apply study bolt if 120 min reached
+  const studyDone = todayMinutes >= 120 || bolt.study === true
 
   // Build ProfileUser
   const profileUser: ProfileUser = {

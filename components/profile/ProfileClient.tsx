@@ -599,9 +599,9 @@ export function ProfileClient({
                           <div className="mt-3">
                             <div className="h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
                               <div className="h-full bg-[#F97316] rounded-full transition-all"
-                                style={{ width: `${Math.min(((task.study_minutes_today ?? 0) / 60) * 100, 100)}%` }} />
+                                style={{ width: `${Math.min(((task.study_minutes_today ?? 0) / 120) * 100, 100)}%` }} />
                             </div>
-                            <p className="text-[#555] text-xs mt-1">{task.study_minutes_today ?? 0} / 60 min</p>
+                            <p className="text-[#555] text-xs mt-1">{task.study_minutes_today ?? 0} / 120 min</p>
                             <p className="text-[#333] text-[10px] mt-1">Tracked automatically as you complete components.</p>
                           </div>
                         )}
