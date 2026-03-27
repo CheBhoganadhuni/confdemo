@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Check,
@@ -16,7 +17,10 @@ import {
   Target,
   Loader2,
   Diamond,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
 import { ComponentSheet } from './component-sheet'
@@ -36,13 +40,39 @@ interface RoadViewProps {
   road: RoadWithProgress
   todayMinutes: number
   onMinutesUpdate: (add: number) => void
+  isOwner?: boolean
+  onDeleted?: () => void
 }
 
 const DAILY_LIMIT = 120
 
-export function RoadView({ road, todayMinutes, onMinutesUpdate }: RoadViewProps) {
+export function RoadView({ road, todayMinutes, onMinutesUpdate, isOwner, onDeleted }: RoadViewProps) {
   const [components, setComponents] = useState<ComponentWithProgress[]>(road.components)
   const [selectedComponent, setSelectedComponent] = useState<ComponentWithProgress | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this road? This cannot be undone.')) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/roads/delete/${road.slug}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.error === 'daily_op_limit') {
+          toast.error('One road operation per day. Come back tomorrow.')
+        } else {
+          toast.error('Failed to delete road.')
+        }
+        return
+      }
+      toast.success('Road deleted.')
+      onDeleted?.()
+    } catch {
+      toast.error('Something went wrong.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const Icon = roadIcons[road.icon] ?? Layers
   const dailyLimitReached = todayMinutes >= DAILY_LIMIT
@@ -84,11 +114,35 @@ export function RoadView({ road, todayMinutes, onMinutesUpdate }: RoadViewProps)
         <p className="text-[#555] text-xs sm:text-sm mt-1">
           {components.length} components · ~{totalHours}h total · {progressPercent}% complete
         </p>
+        {!isOwner && road.creator_name && (
+          <p className="text-[#444] text-xs mt-0.5">
+            by <span className="text-[#555]">{road.creator_name}</span>
+          </p>
+        )}
         <Progress
           value={progressPercent}
           className="mt-3 h-1.5 bg-[#1F1F1F]"
           style={{ '--progress-color': road.color } as React.CSSProperties}
         />
+        {isOwner && (
+          <div className="flex items-center gap-2 mt-3">
+            <Link
+              href={`/road/edit/${road.slug}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#A0A0A0] border border-[#1F1F1F] rounded-sm hover:border-[#333] hover:text-white transition-colors"
+            >
+              <Pencil className="size-3" />
+              Edit road
+            </Link>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#A0A0A0] border border-[#1F1F1F] rounded-sm hover:border-red-800 hover:text-red-400 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+              Delete
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Component journey */}
@@ -98,8 +152,8 @@ export function RoadView({ road, todayMinutes, onMinutesUpdate }: RoadViewProps)
 
           {components.map((component, index) => {
             const isCompleted = component.progress_status === 'completed'
-            const previousCompleted = index === 0 || components[index - 1].progress_status === 'completed'
-            const available = isCompleted || previousCompleted
+            const firstUncompletedIndex = components.findIndex(c => c.progress_status !== 'completed')
+            const isCurrent = !isCompleted && index === firstUncompletedIndex
 
             return (
               <ComponentStop
@@ -108,9 +162,8 @@ export function RoadView({ road, todayMinutes, onMinutesUpdate }: RoadViewProps)
                 index={index}
                 roadColor={road.color}
                 isLast={index === components.length - 1}
-                available={available}
+                isCurrent={isCurrent}
                 onSelect={() => setSelectedComponent(component)}
-                dailyLimitReached={dailyLimitReached}
               />
             )
           })}
@@ -168,9 +221,8 @@ interface ComponentStopProps {
   index: number
   roadColor: string
   isLast: boolean
-  available: boolean
+  isCurrent: boolean
   onSelect: () => void
-  dailyLimitReached: boolean
 }
 
 function ComponentStop({
@@ -178,12 +230,10 @@ function ComponentStop({
   index,
   roadColor,
   isLast,
-  available,
+  isCurrent,
   onSelect,
-  dailyLimitReached,
 }: ComponentStopProps) {
   const isCompleted = component.progress_status === 'completed'
-  const isAvailableNext = available && !isCompleted
 
   return (
     <motion.div
@@ -202,22 +252,18 @@ function ComponentStop({
       <div className="relative z-10 shrink-0">
         <StopIndicator
           completed={isCompleted}
-          available={available}
-          isAvailableNext={isAvailableNext}
+          isCurrent={isCurrent}
           roadColor={roadColor}
         />
       </div>
 
       <button
         onClick={onSelect}
-        disabled={!available}
         className={cn(
           'flex-1 text-left py-3 px-4 rounded-sm transition-colors border border-transparent',
-          available
-            ? 'cursor-pointer hover:bg-[#111] group-hover:border-[#333]'
-            : 'cursor-not-allowed opacity-50',
+          'cursor-pointer hover:bg-[#111] group-hover:border-[#333]',
           isCompleted && 'border-l-2',
-          isAvailableNext && 'animate-pulse bg-[#F97316]/[0.03]'
+          isCurrent && 'animate-pulse bg-[#F97316]/[0.03]'
         )}
         style={{ borderLeftColor: isCompleted ? roadColor : undefined }}
       >
@@ -233,12 +279,11 @@ function ComponentStop({
 
 interface StopIndicatorProps {
   completed: boolean
-  available: boolean
-  isAvailableNext: boolean
+  isCurrent: boolean
   roadColor: string
 }
 
-function StopIndicator({ completed, available, isAvailableNext, roadColor }: StopIndicatorProps) {
+function StopIndicator({ completed, isCurrent, roadColor }: StopIndicatorProps) {
   const base = 'size-9 rounded-full flex items-center justify-center'
 
   if (completed) {
@@ -257,35 +302,28 @@ function StopIndicator({ completed, available, isAvailableNext, roadColor }: Sto
     )
   }
 
-  if (isAvailableNext) {
+  if (isCurrent) {
     return (
       <motion.div
-        className={cn(base, 'border-2 border-[#F97316] bg-[#F97316]/10')}
+        className={cn(base, 'border-2')}
+        style={{ borderColor: roadColor, backgroundColor: `color-mix(in srgb, ${roadColor} 10%, #0D0D0D)` }}
         animate={{
           boxShadow: [
-            '0 0 0 0 rgba(249,115,22,0)',
-            '0 0 0 4px rgba(249,115,22,0.2)',
-            '0 0 0 0 rgba(249,115,22,0)',
+            `0 0 0 0 ${roadColor}00`,
+            `0 0 0 4px ${roadColor}33`,
+            `0 0 0 0 ${roadColor}00`,
           ],
         }}
         transition={{ duration: 2, repeat: Infinity }}
       >
-        <Play className="size-4 text-[#F97316] ml-0.5" />
+        <Play className="size-4 ml-0.5" style={{ color: roadColor }} />
       </motion.div>
     )
   }
 
-  if (available) {
-    return (
-      <div className={cn(base, 'border-2 border-[#F97316] bg-[#0D0D0D]')}>
-        <Play className="size-4 text-[#F97316] ml-0.5" />
-      </div>
-    )
-  }
-
   return (
-    <div className={cn(base, 'border-2 border-[#2A2A2A] bg-[#0D0D0D]')}>
-      <Circle className="size-4 text-[#2A2A2A]" />
+    <div className={cn(base, 'border-2 bg-[#0D0D0D]')} style={{ borderColor: roadColor }}>
+      <Circle className="size-4" style={{ color: roadColor }} />
     </div>
   )
 }

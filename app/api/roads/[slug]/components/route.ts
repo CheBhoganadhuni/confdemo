@@ -69,8 +69,20 @@ export async function GET(
 
   const completedCount = components.filter(c => c.progress_status === 'completed').length
 
+  // Fetch creator name if road has an owner
+  let creator_name: string | undefined
+  if (road.created_by) {
+    const { data: creator } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', road.created_by)
+      .single()
+    creator_name = creator?.name ?? undefined
+  }
+
   return NextResponse.json({
     ...road,
+    creator_name,
     components,
     completion_percent: components.length > 0
       ? Math.round((completedCount / components.length) * 100)

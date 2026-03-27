@@ -64,13 +64,15 @@ export async function POST(req: Request) {
   }
 
   // Insert road (reuse university_id already fetched above via opsUser)
+  const roadType = is_published ? 'university' : 'custom'
+
   const { data: newRoad, error: roadError } = await supabase
     .from('roads')
     .insert({
       slug,
       title,
       description: description ?? null,
-      type: 'custom',
+      type: roadType,
       created_by: userId,
       university_id: is_published ? (opsUser?.university_id ?? null) : null,
       color,

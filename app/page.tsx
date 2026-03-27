@@ -574,65 +574,64 @@ export default function Home() {
       )}
 
       {/* ── FOOTER ── */}
-      <footer id="section-footer" className="bg-[#0A0A0A] border-t border-[#1F1F1F] pt-10 sm:pt-16 pb-6 sm:pb-8">
+      <footer id="section-footer" className="bg-[#0A0A0A] border-t border-[#1F1F1F] py-7 sm:py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
 
-          {/* Top row */}
-          <div className="flex flex-col gap-10 sm:gap-12 lg:flex-row lg:justify-between lg:items-start mb-10 sm:mb-14">
+          {/* Mobile: brand full-width, then 2-col grid for links + partnerships */}
+          {/* Desktop: single flex row with 3 columns */}
+          <div className="flex flex-col gap-5 lg:flex-row lg:justify-between lg:items-start lg:gap-8">
 
             {/* Brand */}
             <div className="max-w-xs">
-              <div className="font-bold text-white text-lg tracking-tight mb-2">
+              <div className="font-bold text-white text-base tracking-tight mb-1">
                 Jnana Sethu<span className="text-[#F97316]">.</span>
               </div>
               <p className="text-[#555] text-sm leading-relaxed">
-                A bridge of knowledge — structured learning paths built by seniors, for juniors.
+                Structured learning paths built by seniors, for juniors.
               </p>
             </div>
 
-            {/* Nav links */}
-            <div>
-              <span className="text-[10px] tracking-widest text-[#555] uppercase mb-4 block">
-                Explore
-              </span>
-              <ul className="flex flex-col gap-3">
-                {[
-                  { href: '/world', label: 'World Map' },
-                  { href: '/road',  label: 'Roads' },
-                  { href: '/profile', label: 'My Profile' },
-                ].map(({ href, label }) => (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className="text-[#A0A0A0] text-sm hover:text-[#F97316] transition-colors"
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Mobile 2-col: explore + partnerships side by side */}
+            <div className="grid grid-cols-2 gap-4 lg:contents">
 
-            {/* University partnership CTA */}
-            <div className="max-w-sm">
-              <span className="text-[10px] tracking-widest text-[#555] uppercase mb-4 block">
-                Partnerships
-              </span>
-              <p className="text-[#A0A0A0] text-sm leading-relaxed mb-4">
-                Want to bring Jnana Sethu to your university? We onboard colleges free of charge — students get full access.
-              </p>
-              <a
-                href="mailto:partnerships@jnanasethu.com"
-                className="inline-flex items-center gap-2 bg-transparent border border-[#333] hover:border-[#F97316] text-white hover:text-[#F97316] text-sm px-4 py-2 rounded-sm transition-colors"
-              >
-                partnerships@jnanasethu.com
-                <ArrowRight className="w-3.5 h-3.5" />
-              </a>
+              {/* Nav links */}
+              <div>
+                <span className="text-[10px] tracking-widest text-[#555] uppercase mb-2.5 block">Explore</span>
+                <ul className="flex flex-col gap-2">
+                  {[
+                    { href: '/world',   label: 'World Map' },
+                    { href: '/road',    label: 'Roads' },
+                    { href: '/profile', label: 'My Profile' },
+                  ].map(({ href, label }) => (
+                    <li key={href}>
+                      <Link href={href} className="text-[#A0A0A0] text-sm hover:text-[#F97316] transition-colors">
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Partnership */}
+              <div>
+                <span className="text-[10px] tracking-widest text-[#555] uppercase mb-2.5 block">Partnerships</span>
+                <p className="text-[#A0A0A0] text-sm leading-relaxed mb-3">
+                  Bring Jnana Sethu to your university. Free for students.
+                </p>
+                <a
+                  href="mailto:partnerships@jnanasethu.com"
+                  className="inline-flex items-center gap-2 bg-transparent border border-[#333] hover:border-[#F97316] text-white hover:text-[#F97316] text-xs sm:text-sm px-3 py-2 rounded-sm transition-colors break-all"
+                >
+                  partnerships@jnanasethu.com
+                  <ArrowRight className="w-3 h-3 shrink-0" />
+                </a>
+              </div>
+
             </div>
           </div>
 
-          {/* Bottom copyright bar */}
-          <div className="border-t border-[#1F1F1F] pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
+          {/* Bottom bar */}
+          <div className="border-t border-[#1F1F1F] mt-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-1.5">
             <p className="text-[#444] text-xs">
               © {new Date().getFullYear()} Jnana Sethu. Made with ♥ by students, for students.
             </p>

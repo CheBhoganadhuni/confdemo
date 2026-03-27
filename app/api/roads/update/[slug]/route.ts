@@ -32,7 +32,7 @@ export async function PATCH(
   // Check daily road operation limit via users.road_ops (cron resets to 0 at midnight)
   const { data: opsUser } = await supabase
     .from('users')
-    .select('road_ops')
+    .select('road_ops, university_id')
     .eq('id', userId)
     .single()
 
@@ -48,7 +48,17 @@ export async function PATCH(
   if (title !== undefined) updates.title = title
   if (description !== undefined) updates.description = description
   if (color !== undefined) updates.color = color
-  if (is_published !== undefined) updates.is_published = is_published
+  if (is_published !== undefined) {
+    updates.is_published = is_published
+    // Promote/demote type when publish status changes
+    if (is_published === true) {
+      updates.type = 'university'
+      updates.university_id = (opsUser as { university_id?: string } | null)?.university_id ?? null
+    } else {
+      updates.type = 'custom'
+      updates.university_id = null
+    }
+  }
 
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await supabase

@@ -1,33 +1,36 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { RoadBuilderClient } from '@/components/road/road-builder-client'
+import type { BuilderCity, BuilderComponent } from '@/app/road/build/page'
 
-export interface BuilderComponent {
-  id: string
-  name: string
-  cityId: string
-  cityName: string
-  cityColor: string
-  levelId: string
-  levelName: string
-  estimatedMinutes: number
-}
-
-export interface BuilderCity {
-  id: string
-  name: string
-  color: string
-  icon: string
-  components: BuilderComponent[]
-}
-
-export default async function RoadBuildPage() {
+export default async function RoadEditPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  // Fetch all published cities
+  // Fetch the road being edited
+  const { data: road } = await supabase
+    .from('roads')
+    .select('id, slug, title, description, color, is_published, created_by')
+    .eq('slug', slug)
+    .single()
+
+  if (!road || road.created_by !== user.id) redirect('/road')
+
+  // Fetch current road_components ordered
+  const { data: roadComps } = await supabase
+    .from('road_components')
+    .select('component_id, sequence_order')
+    .eq('road_id', road.id)
+    .order('sequence_order')
+
+  // --- same city/component fetch as build page ---
   const { data: rawCities } = await supabase
     .from('cities')
     .select('id, slug, title, color, icon')
@@ -36,7 +39,6 @@ export default async function RoadBuildPage() {
 
   const cityIds = (rawCities ?? []).map((c: { id: string }) => c.id)
 
-  // Fetch published levels for those cities
   const { data: rawLevels } = cityIds.length > 0
     ? await supabase
         .from('levels')
@@ -48,7 +50,6 @@ export default async function RoadBuildPage() {
 
   const levelIds = (rawLevels ?? []).map((l: { id: string }) => l.id)
 
-  // Fetch level_components with component details
   const { data: levelComps } = levelIds.length > 0
     ? await supabase
         .from('level_components')
@@ -64,23 +65,7 @@ export default async function RoadBuildPage() {
     components: { id: string; title: string; duration_minutes: number; is_published: boolean } | null
   }>
 
-  // Count user's existing custom roads
-  const { count: userRoadCount } = await supabase
-    .from('roads')
-    .select('id', { count: 'exact', head: true })
-    .eq('created_by', user.id)
-    .eq('type', 'custom')
-
-  // Check if user has used their daily road op
-  const { data: opsUser } = await supabase
-    .from('users')
-    .select('road_ops')
-    .eq('id', user.id)
-    .single()
-
-  const hasUsedDailyOp = (opsUser?.road_ops ?? 0) >= 1
-
-  // Build lookup maps
+  // Build city/component maps
   const cityMap = new Map(
     (rawCities ?? []).map((c: { id: string; title: string; color: string; icon: string }) => [c.id, c])
   )
@@ -88,9 +73,9 @@ export default async function RoadBuildPage() {
     (rawLevels ?? []).map((l: { id: string; title: string; city_id: string }) => [l.id, l])
   )
 
-  // Group components by city
   const compsByCity = new Map<string, BuilderComponent[]>()
   const seenComponentIds = new Set<string>()
+  const allComponentsById = new Map<string, BuilderComponent>()
 
   for (const lc of typedLevelComps) {
     const comp = lc.components
@@ -100,12 +85,10 @@ export default async function RoadBuildPage() {
 
     const level = levelMap.get(lc.level_id)
     if (!level) continue
-
     const city = cityMap.get(level.city_id)
     if (!city) continue
 
-    if (!compsByCity.has(level.city_id)) compsByCity.set(level.city_id, [])
-    compsByCity.get(level.city_id)!.push({
+    const builderComp: BuilderComponent = {
       id: comp.id,
       name: comp.title,
       cityId: level.city_id,
@@ -114,7 +97,11 @@ export default async function RoadBuildPage() {
       levelId: lc.level_id,
       levelName: level.title,
       estimatedMinutes: comp.duration_minutes ?? 30,
-    })
+    }
+
+    if (!compsByCity.has(level.city_id)) compsByCity.set(level.city_id, [])
+    compsByCity.get(level.city_id)!.push(builderComp)
+    allComponentsById.set(comp.id, builderComp)
   }
 
   const cities: BuilderCity[] = (rawCities ?? [])
@@ -127,12 +114,41 @@ export default async function RoadBuildPage() {
     }))
     .filter((city: BuilderCity) => city.components.length > 0)
 
+  // Build initial selected components in order
+  const initialComponents: BuilderComponent[] = (roadComps ?? [])
+    .sort((a, b) => a.sequence_order - b.sequence_order)
+    .map(rc => allComponentsById.get(rc.component_id))
+    .filter(Boolean) as BuilderComponent[]
+
+  // Count user's custom roads (for limit display)
+  const { count: userRoadCount } = await supabase
+    .from('roads')
+    .select('id', { count: 'exact', head: true })
+    .eq('created_by', user.id)
+    .eq('type', 'custom')
+
+  const { data: opsUser } = await supabase
+    .from('users')
+    .select('road_ops')
+    .eq('id', user.id)
+    .single()
+
+  const hasUsedDailyOp = (opsUser?.road_ops ?? 0) >= 1
+
   return (
     <RoadBuilderClient
       cities={cities}
       userRoadCount={userRoadCount ?? 0}
       maxRoads={3}
       hasUsedDailyOp={hasUsedDailyOp}
+      editMode={{
+        slug: road.slug,
+        initialName: road.title,
+        initialDescription: road.description ?? '',
+        initialColor: road.color,
+        initialPublished: road.is_published ?? false,
+        initialComponents,
+      }}
     />
   )
 }

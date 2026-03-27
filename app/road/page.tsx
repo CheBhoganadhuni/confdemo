@@ -17,7 +17,7 @@ export default async function RoadPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('university_id, today_time_minutes, today_date')
+    .select('university_id, today_time_minutes, today_date, name, token_count')
     .eq('id', user.id)
     .single()
 
@@ -42,6 +42,10 @@ export default async function RoadPage() {
     .select('*')
     .or(orParts.join(','))
 
+  const ud = userData as { name?: string; token_count?: number } | null
+  const userName = ud?.name ?? undefined
+  const tokenCount = ud?.token_count ?? 0
+
   if (!roads || roads.length === 0) {
     return (
       <RoadPageClient
@@ -49,6 +53,8 @@ export default async function RoadPage() {
         universityRoads={[]}
         customRoads={[]}
         todayMinutes={todayMinutes}
+        userName={userName}
+        tokenCount={tokenCount}
       />
     )
   }
@@ -112,9 +118,14 @@ export default async function RoadPage() {
     }
   })
 
+  // Mine = all roads the user created (any type)
+  const myRoadIds = new Set(roads.filter((r: Record<string,unknown>) => r.created_by === user.id).map((r: Record<string,unknown>) => r.id as string))
+
   const presetRoads = enriched.filter(r => r.type === 'preset')
-  const universityRoads = enriched.filter(r => r.type === 'university')
-  const customRoads = enriched.filter(r => r.type === 'custom')
+  // University tab: published university roads by OTHER students only
+  const universityRoads = enriched.filter(r => r.type === 'university' && !myRoadIds.has(r.id))
+  // Mine tab: all roads created by me (includes published ones now typed as 'university')
+  const customRoads = enriched.filter(r => myRoadIds.has(r.id))
 
   return (
     <RoadPageClient
@@ -122,6 +133,8 @@ export default async function RoadPage() {
       universityRoads={universityRoads}
       customRoads={customRoads}
       todayMinutes={todayMinutes}
+      userName={userName}
+      tokenCount={tokenCount}
     />
   )
 }

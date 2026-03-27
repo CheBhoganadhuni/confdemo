@@ -6,8 +6,8 @@ import Link from 'next/link'
 import {
   ChevronRight,
   Plus,
-  Menu,
   X,
+  Search,
   Layers,
   Database,
   Cpu,
@@ -16,12 +16,14 @@ import {
   Globe,
   Target,
   Loader2,
+  Menu,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { UserAvatarMenu } from '@/components/shared/user-avatar-menu'
 import { RoadView } from './road-view'
 import type { RoadWithProgress } from '@/lib/types/database'
 
@@ -41,13 +43,7 @@ export interface RoadSummary {
 }
 
 const roadIcons: Record<string, React.ElementType> = {
-  Layers,
-  Database,
-  Cpu,
-  Brain,
-  GraduationCap,
-  Globe,
-  Target,
+  Layers, Database, Cpu, Brain, GraduationCap, Globe, Target,
 }
 
 interface RoadPageClientProps {
@@ -55,6 +51,8 @@ interface RoadPageClientProps {
   universityRoads: RoadSummary[]
   customRoads: RoadSummary[]
   todayMinutes: number
+  userName?: string
+  tokenCount?: number
 }
 
 type TabType = 'presets' | 'university' | 'mine'
@@ -64,6 +62,8 @@ export function RoadPageClient({
   universityRoads,
   customRoads,
   todayMinutes: initialTodayMinutes,
+  userName,
+  tokenCount = 0,
 }: RoadPageClientProps) {
   const [activeTab, setActiveTab] = useState<TabType>('presets')
   const [selectedSummary, setSelectedSummary] = useState<RoadSummary | null>(null)
@@ -71,13 +71,13 @@ export function RoadPageClient({
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [todayMinutes, setTodayMinutes] = useState(initialTodayMinutes)
+  const [myRoads, setMyRoads] = useState<RoadSummary[]>(customRoads)
 
   const currentRoads =
     activeTab === 'presets' ? presetRoads :
     activeTab === 'university' ? universityRoads :
-    customRoads
+    myRoads
 
-  // Auto-select first road on mount
   useEffect(() => {
     if (!selectedSummary && presetRoads.length > 0) {
       handleSelectRoad(presetRoads[0])
@@ -90,7 +90,6 @@ export function RoadPageClient({
     setMobileMenuOpen(false)
     setRoadDetail(null)
     setIsLoadingDetail(true)
-
     try {
       const res = await fetch(`/api/roads/${road.slug}/components`)
       if (!res.ok) throw new Error('Failed to load road')
@@ -103,66 +102,96 @@ export function RoadPageClient({
     }
   }
 
-  return (
-    <div className="flex h-screen bg-[#0D0D0D]">
-      {/* Desktop: Left Panel */}
-      <aside className="hidden lg:flex w-72 xl:w-80 flex-col border-r border-[#1F1F1F] bg-[#0A0A0A] fixed left-0 top-0 h-screen">
-        <RoadBrowser
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          roads={currentRoads}
-          selectedRoad={selectedSummary}
-          onSelectRoad={handleSelectRoad}
-        />
-      </aside>
+  const browserContent = (
+    <RoadBrowser
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      roads={currentRoads}
+      allRoads={{ presets: presetRoads, university: universityRoads, mine: myRoads }}
+      selectedRoad={selectedSummary}
+      onSelectRoad={handleSelectRoad}
+    />
+  )
 
-      {/* Mobile: Hamburger */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+  return (
+    <div className="h-screen flex flex-col bg-[#0D0D0D] overflow-hidden">
+
+      {/* ── Top header ── */}
+      <header className="h-14 shrink-0 grid grid-cols-3 items-center border-b border-[#1F1F1F] bg-[#0A0A0A] px-4 sm:px-5 z-40">
+        {/* Left: hamburger (mobile only) */}
+        <div className="flex items-center">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden text-[#A0A0A0] hover:text-white transition-colors"
+            aria-label="Open road browser"
+          >
+            <Menu className="size-5" />
+          </button>
+        </div>
+
+        {/* Centre: title */}
+        <span className="text-white font-bold text-sm tracking-tight text-center">Roads</span>
+
+        {/* Right: avatar menu */}
+        <div className="flex items-center justify-end">
+          <UserAvatarMenu
+            userName={userName}
+            tokenCount={tokenCount}
+            todayMinutes={todayMinutes}
+            activeRoute="/road"
+          />
+        </div>
+      </header>
+
+      {/* ── Body: sidebar + main ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex w-72 xl:w-80 flex-col border-r border-[#1F1F1F] bg-[#0A0A0A] shrink-0 overflow-y-auto">
+          {browserContent}
+        </aside>
+
+        {/* Mobile sidebar sheet */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-[#0A0A0A] border-[#1F1F1F]">
-              <Menu className="size-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-72 bg-[#0A0A0A] border-[#1F1F1F] p-0">
+          <SheetContent side="left" className="w-72 bg-[#0A0A0A] border-[#1F1F1F] p-0 [&>button:last-child]:hidden">
             <SheetTitle className="sr-only">Road Browser</SheetTitle>
             <SheetDescription className="sr-only">Browse and select learning roads</SheetDescription>
-            <RoadBrowser
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              roads={currentRoads}
-              selectedRoad={selectedSummary}
-              onSelectRoad={handleSelectRoad}
-            />
+            {browserContent}
           </SheetContent>
         </Sheet>
-      </div>
 
-      {/* Right Panel */}
-      <main className="flex-1 lg:ml-72 xl:ml-80 h-screen overflow-y-auto bg-[#0D0D0D]">
-        <AnimatePresence mode="wait">
-          {isLoadingDetail ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center justify-center h-full"
-            >
-              <Loader2 className="size-6 animate-spin text-[#555]" />
-            </motion.div>
-          ) : roadDetail ? (
-            <RoadView
-              key={roadDetail.id}
-              road={roadDetail}
-              todayMinutes={todayMinutes}
-              onMinutesUpdate={(add) => setTodayMinutes(prev => prev + add)}
-            />
-          ) : (
-            <EmptyState />
-          )}
-        </AnimatePresence>
-      </main>
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto bg-[#0D0D0D]">
+          <AnimatePresence mode="wait">
+            {isLoadingDetail ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center justify-center h-full"
+              >
+                <Loader2 className="size-6 animate-spin text-[#555]" />
+              </motion.div>
+            ) : roadDetail ? (
+              <RoadView
+                key={roadDetail.id}
+                road={roadDetail}
+                todayMinutes={todayMinutes}
+                onMinutesUpdate={(add) => setTodayMinutes(prev => prev + add)}
+                isOwner={myRoads.some(r => r.id === selectedSummary?.id)}
+                onDeleted={() => {
+                  setMyRoads(prev => prev.filter(r => r.id !== selectedSummary?.id))
+                  setSelectedSummary(null)
+                  setRoadDetail(null)
+                }}
+              />
+            ) : (
+              <EmptyState />
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
     </div>
   )
 }
@@ -171,55 +200,112 @@ interface RoadBrowserProps {
   activeTab: TabType
   setActiveTab: (tab: TabType) => void
   roads: RoadSummary[]
+  allRoads: { presets: RoadSummary[]; university: RoadSummary[]; mine: RoadSummary[] }
   selectedRoad: RoadSummary | null
   onSelectRoad: (road: RoadSummary) => void
 }
 
-function RoadBrowser({ activeTab, setActiveTab, roads, selectedRoad, onSelectRoad }: RoadBrowserProps) {
+function RoadBrowser({ activeTab, setActiveTab, roads, allRoads, selectedRoad, onSelectRoad }: RoadBrowserProps) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+
   const tabs: { id: TabType; label: string }[] = [
-    { id: 'presets', label: 'Presets' },
+    { id: 'presets',    label: 'Presets'    },
     { id: 'university', label: 'University' },
-    { id: 'mine', label: 'Mine' },
+    { id: 'mine',       label: 'Mine'       },
   ]
 
-  return (
-    <>
-      <div className="px-5 py-4 border-b border-[#1F1F1F]">
-        <h2 className="text-white font-bold text-sm">Roads</h2>
-        <div className="flex gap-4 mt-3">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'text-[10px] tracking-wider uppercase pb-1 transition-colors',
-                activeTab === tab.id
-                  ? 'text-[#F97316] border-b-2 border-[#F97316]'
-                  : 'text-[#555] hover:text-[#A0A0A0]'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  // When searching, gather matches from all sections with labels
+  const searchSections: { label: string; roads: RoadSummary[] }[] = q
+    ? [
+        { label: 'Presets',    roads: allRoads.presets.filter(r => r.title.toLowerCase().includes(q)) },
+        { label: 'University', roads: allRoads.university.filter(r => r.title.toLowerCase().includes(q)) },
+        { label: 'Mine',       roads: allRoads.mine.filter(r => r.title.toLowerCase().includes(q)) },
+      ].filter(s => s.roads.length > 0)
+    : []
 
-      <div className="flex-1 overflow-y-auto px-3 py-2">
-        {roads.length === 0 ? (
-          <p className="text-[#555] text-xs text-center py-8">No roads in this category.</p>
-        ) : (
-          roads.map((road) => (
-            <RoadCard
-              key={road.id}
-              road={road}
-              isSelected={selectedRoad?.id === road.id}
-              onSelect={() => onSelectRoad(road)}
-            />
-          ))
+  const totalMatches = searchSections.reduce((n, s) => n + s.roads.length, 0)
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Tabs + search */}
+      <div className="px-4 pt-3 pb-0 border-b border-[#1F1F1F] shrink-0">
+        {/* Search input */}
+        <div className="flex items-center gap-2 bg-[#111] border border-[#1F1F1F] rounded-sm px-2.5 mb-3 focus-within:border-[#333] transition-colors">
+          <Search className="size-3.5 text-[#444] shrink-0" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search roads…"
+            className="flex-1 bg-transparent py-1.5 text-xs text-white placeholder:text-[#444] outline-none min-w-0"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} className="text-[#444] hover:text-[#888] shrink-0 transition-colors">
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Tabs — hidden while searching */}
+        {!q && (
+          <div className="flex gap-4 pb-0">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'text-[10px] tracking-wider uppercase pb-2.5 transition-colors',
+                  activeTab === tab.id
+                    ? 'text-[#F97316] border-b-2 border-[#F97316]'
+                    : 'text-[#555] hover:text-[#A0A0A0]'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      <div className="px-5 py-4 border-t border-[#1F1F1F]">
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+        {q ? (
+          // Search results across all sections
+          totalMatches === 0 ? (
+            <p className="text-[#555] text-xs text-center py-8">No roads match &ldquo;{query}&rdquo;</p>
+          ) : (
+            searchSections.map(section => (
+              <div key={section.label}>
+                <p className="text-[10px] tracking-widest uppercase text-[#333] px-2 pt-3 pb-1">{section.label}</p>
+                {section.roads.map(road => (
+                  <RoadCard
+                    key={road.id}
+                    road={road}
+                    isSelected={selectedRoad?.id === road.id}
+                    onSelect={() => onSelectRoad(road)}
+                  />
+                ))}
+              </div>
+            ))
+          )
+        ) : (
+          // Normal tab view
+          roads.length === 0 ? (
+            <p className="text-[#555] text-xs text-center py-8">No roads in this category.</p>
+          ) : (
+            roads.map((road) => (
+              <RoadCard
+                key={road.id}
+                road={road}
+                isSelected={selectedRoad?.id === road.id}
+                onSelect={() => onSelectRoad(road)}
+              />
+            ))
+          )
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t border-[#1F1F1F] shrink-0">
         <Link href="/road/build">
           <Button
             variant="outline"
@@ -230,7 +316,7 @@ function RoadBrowser({ activeTab, setActiveTab, roads, selectedRoad, onSelectRoa
           </Button>
         </Link>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -287,6 +373,9 @@ function RoadCard({ road, isSelected, onSelect }: RoadCardProps) {
     </button>
   )
 }
+
+// keep X in scope to avoid lint warnings (used in other variants)
+void X
 
 function EmptyState() {
   return (

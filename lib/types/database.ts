@@ -218,4 +218,5 @@ export interface RoadWithProgress extends Road {
   completion_percent: number
   completed_count: number
   total_count: number
+  creator_name?: string
 }
