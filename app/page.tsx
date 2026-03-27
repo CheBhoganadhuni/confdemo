@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, Suspense } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion'
 import { Navbar } from '@/components/layout/navbar'
 import { PolyBackground } from '@/components/ui/poly-background'
@@ -26,8 +26,15 @@ function FadeInSection({ children, className, delay = 0 }: { children: React.Rea
 }
 
 export default function Home() {
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
+
+  // Lightweight auth check for button logic (Navbar manages its own display state)
+  useEffect(() => {
+    fetch('/api/user/me')
+      .then(res => { if (res.ok) setIsLoggedIn(true) })
+      .catch(() => {})
+  }, [])
 
   // Parallax for hero section — spring-smoothed
   const heroRef = useRef(null)
@@ -55,10 +62,8 @@ export default function Home() {
   })
   const sec4Scale = useTransform(sec4Progress, [0, 0.5, 1], [0.95, 1, 0.98])
 
-  const handleSignOut = () => setUser(null)
-
   const handleOpenMap = () => {
-    if (user) {
+    if (isLoggedIn) {
       window.location.href = '/world'
     } else {
       setSignInOpen(true)
@@ -66,7 +71,7 @@ export default function Home() {
   }
 
   const handleStartFree = () => {
-    if (user) {
+    if (isLoggedIn) {
       window.location.href = '/world'
     } else {
       setSignInOpen(true)
@@ -75,12 +80,7 @@ export default function Home() {
 
   return (
     <main className="bg-[#0A0A0A]">
-      <Navbar
-        user={user}
-        studyTime="0h 24m"
-        bolts={7}
-        onSignOut={handleSignOut}
-      />
+      <Navbar />
 
       {/* SECTION 1 — HERO */}
       <section ref={heroRef} className="relative min-h-screen overflow-hidden bg-[#0A0A0A]">

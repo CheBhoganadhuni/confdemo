@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Clock, Zap, Menu, User, LogOut } from 'lucide-react'
 import {
@@ -19,26 +20,47 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { SignInModal } from '@/components/auth/sign-in-modal'
+import { createClient } from '@/lib/supabase/client'
+import { formatDuration } from '@/lib/utils'
 
-interface User {
+interface AuthUser {
   name: string
-  email: string
+  today_time_minutes: number
+  token_count: number
 }
 
-interface NavbarProps {
-  user?: User | null
-  studyTime?: string
-  bolts?: number
-  onSignOut?: () => void
-}
-
-export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: NavbarProps) {
+export function Navbar() {
+  const router = useRouter()
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [signInOpen, setSignInOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const getInitial = (name: string) => {
-    return name.charAt(0).toUpperCase()
+  useEffect(() => {
+    fetch('/api/user/me')
+      .then(res => {
+        if (!res.ok) {
+          setAuthUser(null)
+          return null
+        }
+        return res.json()
+      })
+      .then((data: AuthUser | null) => {
+        if (data) setAuthUser(data)
+      })
+      .catch(() => setAuthUser(null))
+  }, [])
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setAuthUser(null)
+    router.push('/')
+    router.refresh()
   }
+
+  const getInitial = (name: string) => name.charAt(0).toUpperCase()
+  const studyTime = authUser ? formatDuration(authUser.today_time_minutes) : '0h 0m'
+  const bolts = authUser?.token_count ?? 0
 
   return (
     <>
@@ -51,7 +73,7 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
 
           {/* Desktop Right Side */}
           <div className="hidden md:flex items-center gap-6">
-            {user ? (
+            {authUser ? (
               <>
                 {/* Study Time */}
                 <div className="flex items-center gap-1.5 text-xs text-[#A0A0A0]">
@@ -69,13 +91,10 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="w-7 h-7 rounded-full bg-[#F97316] text-black font-bold text-xs flex items-center justify-center hover:bg-[#EA6B0A] transition-colors">
-                      {getInitial(user.name)}
+                      {getInitial(authUser.name)}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-48 bg-[#111111] border-[#1F1F1F]"
-                  >
+                  <DropdownMenuContent align="end" className="w-48 bg-[#111111] border-[#1F1F1F]">
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="cursor-pointer">
                         <User className="w-4 h-4 mr-2" />
@@ -84,7 +103,7 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-[#1F1F1F]" />
                     <DropdownMenuItem
-                      onClick={onSignOut}
+                      onClick={handleSignOut}
                       className="cursor-pointer text-[#A0A0A0] focus:text-white"
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -111,10 +130,7 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
                   <Menu className="w-5 h-5" />
                 </button>
               </SheetTrigger>
-              <SheetContent
-                side="right"
-                className="bg-[#0A0A0A] border-l border-[#1F1F1F] w-72"
-              >
+              <SheetContent side="right" className="bg-[#0A0A0A] border-l border-[#1F1F1F] w-72">
                 <SheetHeader>
                   <SheetTitle className="text-white font-bold tracking-tight text-left">
                     Jnana Sethu<span className="text-[#F97316]">.</span>
@@ -123,16 +139,15 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
                 </SheetHeader>
 
                 <div className="mt-8 flex flex-col gap-4">
-                  {user ? (
+                  {authUser ? (
                     <>
                       {/* User Info */}
                       <div className="flex items-center gap-3 pb-4 border-b border-[#1F1F1F]">
                         <div className="w-10 h-10 rounded-full bg-[#F97316] text-black font-bold text-sm flex items-center justify-center">
-                          {getInitial(user.name)}
+                          {getInitial(authUser.name)}
                         </div>
                         <div>
-                          <div className="text-white text-sm font-medium">{user.name}</div>
-                          <div className="text-[#A0A0A0] text-xs">{user.email}</div>
+                          <div className="text-white text-sm font-medium">{authUser.name}</div>
                         </div>
                       </div>
 
@@ -165,7 +180,7 @@ export function Navbar({ user, studyTime = '0h 0m', bolts = 0, onSignOut }: Navb
 
                       <button
                         onClick={() => {
-                          onSignOut?.()
+                          handleSignOut()
                           setMobileMenuOpen(false)
                         }}
                         className="flex items-center gap-3 py-3 text-[#A0A0A0] hover:text-white transition-colors"
