@@ -2,40 +2,38 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Search, X } from 'lucide-react'
+import { ArrowLeft, Search, X, User, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
 import { CityNode } from './city-node'
 import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
 import type { CityWithProgress } from '@/lib/types/database'
 
-// UI-specific position + size fields merged onto real city data
 export type WorldCityMapped = CityWithProgress & {
   position: { left: string; top: string }
   size: 'small' | 'normal' | 'large'
 }
 
-// Map from city slug → position + size on the world map canvas
 const CITY_LAYOUT: Record<string, { position: { left: string; top: string }; size: 'small' | 'normal' | 'large' }> = {
-  'beginners-picnic':  { position: { left: '12%', top: '65%' }, size: 'normal' },
-  'blueprint-factory': { position: { left: '22%', top: '30%' }, size: 'normal' },
-  'algorithmic-jungle':{ position: { left: '40%', top: '20%' }, size: 'large'  },
-  'control-tower':     { position: { left: '60%', top: '15%' }, size: 'normal' },
-  'signal-city':       { position: { left: '75%', top: '35%' }, size: 'normal' },
-  'data-vault':        { position: { left: '55%', top: '55%' }, size: 'large'  },
-  'engine-room':       { position: { left: '30%', top: '60%' }, size: 'normal' },
-  'api-district':      { position: { left: '48%', top: '72%' }, size: 'normal' },
-  'cloud-deck':        { position: { left: '68%', top: '68%' }, size: 'normal' },
-  'git-garage':        { position: { left: '82%', top: '55%' }, size: 'small'  },
+  'beginners-picnic':   { position: { left: '12%', top: '65%' }, size: 'normal' },
+  'blueprint-factory':  { position: { left: '22%', top: '30%' }, size: 'normal' },
+  'algorithmic-jungle': { position: { left: '40%', top: '20%' }, size: 'large'  },
+  'control-tower':      { position: { left: '60%', top: '15%' }, size: 'normal' },
+  'signal-city':        { position: { left: '75%', top: '35%' }, size: 'normal' },
+  'data-vault':         { position: { left: '55%', top: '55%' }, size: 'large'  },
+  'engine-room':        { position: { left: '30%', top: '60%' }, size: 'small'  },
+  'api-district':       { position: { left: '48%', top: '72%' }, size: 'normal' },
+  'cloud-deck':         { position: { left: '68%', top: '68%' }, size: 'normal' },
+  'git-garage':         { position: { left: '83%', top: '55%' }, size: 'small'  },
 }
 
-// Default position for any city slug not in the layout map
 const DEFAULT_POSITION = { left: '50%', top: '50%' }
 const DEFAULT_SIZE = 'normal' as const
 
-// Connections between city slugs for SVG lines
 const CITY_CONNECTIONS: [string, string][] = [
   ['beginners-picnic', 'engine-room'],
   ['beginners-picnic', 'blueprint-factory'],
@@ -50,14 +48,26 @@ const CITY_CONNECTIONS: [string, string][] = [
   ['cloud-deck', 'git-garage'],
 ]
 
+// Decorative map markers — purely visual, pointer-events-none
+const MAP_DECORATIONS = [
+  { type: '+', left: '8%',  top: '20%' },
+  { type: '◇', left: '90%', top: '25%' },
+  { type: '+', left: '18%', top: '82%' },
+  { type: '◇', left: '85%', top: '82%' },
+  { type: '+', left: '52%', top: '88%' },
+  { type: '◇', left: '5%',  top: '45%' },
+  { type: '+', left: '95%', top: '55%' },
+]
+
 interface WorldMapClientProps {
   cities: CityWithProgress[]
   userId: string
   universityId?: string
+  userName?: string
 }
 
-export function WorldMapClient({ cities }: WorldMapClientProps) {
-  // Merge DB cities with UI layout data
+export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
+  const router = useRouter()
   const mappedCities: WorldCityMapped[] = cities.map(city => ({
     ...city,
     position: CITY_LAYOUT[city.slug]?.position ?? DEFAULT_POSITION,
@@ -70,18 +80,30 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
+  const [avatarOpen, setAvatarOpen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const dragStart = useRef({ x: 0, y: 0 })
   const offsetStart = useRef({ x: 0, y: 0 })
+  const avatarRef = useRef<HTMLDivElement>(null)
 
   const filteredCities = mappedCities.filter(city =>
     city.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     city.slug.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Detect mobile via window width
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const handleCityClick = useCallback((city: WorldCityMapped) => {
     setSelectedCity(city)
     setView('city')
+    setSearchQuery('')
   }, [])
 
   const handleBackToWorld = useCallback(() => {
@@ -98,17 +120,13 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging) return
-    const dx = e.clientX - dragStart.current.x
-    const dy = e.clientY - dragStart.current.y
     setMapOffset({
-      x: offsetStart.current.x + dx,
-      y: offsetStart.current.y + dy,
+      x: offsetStart.current.x + (e.clientX - dragStart.current.x),
+      y: offsetStart.current.y + (e.clientY - dragStart.current.y),
     })
   }, [isDragging])
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-  }, [])
+  const handleMouseUp = useCallback(() => setIsDragging(false), [])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('[data-city-node]')) return
@@ -121,85 +139,161 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return
     const touch = e.touches[0]
-    const dx = touch.clientX - dragStart.current.x
-    const dy = touch.clientY - dragStart.current.y
     setMapOffset({
-      x: offsetStart.current.x + dx,
-      y: offsetStart.current.y + dy,
+      x: offsetStart.current.x + (touch.clientX - dragStart.current.x),
+      y: offsetStart.current.y + (touch.clientY - dragStart.current.y),
     })
   }, [isDragging])
 
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false)
-  }, [])
+  const handleTouchEnd = useCallback(() => setIsDragging(false), [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && view === 'city') handleBackToWorld()
+      if (e.key === 'Escape') {
+        if (avatarOpen) { setAvatarOpen(false); return }
+        if (view === 'city') handleBackToWorld()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [view, handleBackToWorld])
+  }, [view, avatarOpen, handleBackToWorld])
+
+  // Close avatar dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
+        setAvatarOpen(false)
+      }
+    }
+    if (avatarOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [avatarOpen])
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  const initials = userName ? userName.charAt(0).toUpperCase() : <User className="size-3.5" />
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#0A0A0A' }}>
-      {/* Top Bar */}
-      <header className="relative z-50 flex h-12 sm:h-14 items-center justify-between border-b border-[#1F1F1F] bg-[#0A0A0A]/80 px-3 sm:px-4 backdrop-blur-md gap-2">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 sm:gap-2 text-sm text-[#A0A0A0] transition-colors hover:text-white"
-        >
-          <ArrowLeft className="size-4" />
-          <span className="hidden sm:inline">Home</span>
-        </Link>
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#0A0A0A]">
 
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-medium text-white">
-          World Map
+      {/* ── Context-aware top bar ── */}
+      <header className="relative z-50 flex h-12 sm:h-14 items-center justify-between border-b border-[#1F1F1F] bg-[#0A0A0A]/90 px-3 sm:px-4 backdrop-blur-md gap-2">
+
+        {/* Left */}
+        {view === 'world' ? (
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-sm text-[#A0A0A0] hover:text-white transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            <span className="hidden sm:inline">Home</span>
+          </Link>
+        ) : (
+          <button
+            onClick={handleBackToWorld}
+            className="flex items-center gap-1.5 text-sm text-[#A0A0A0] hover:text-white transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            <span className="hidden sm:inline">World Map</span>
+          </button>
+        )}
+
+        {/* Center */}
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-white pointer-events-none">
+          {view === 'city' && selectedCity ? selectedCity.title : 'World Map'}
         </h1>
 
-        {/* Desktop search */}
-        <div className="relative hidden sm:block w-48">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#555]" />
-          <Input
-            type="text"
-            placeholder="Search cities..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 border-[#1F1F1F] bg-[#111] pl-9 text-sm text-white placeholder:text-[#555] focus:border-[#F97316]/50 focus:ring-[#F97316]/20"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#555] hover:text-white"
-            >
-              <X className="size-3" />
-            </button>
+        {/* Right */}
+        <div className="flex items-center gap-2">
+          {/* Search — only in world view */}
+          {view === 'world' && (
+            <>
+              <div className="relative hidden sm:block w-44">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[#555]" />
+                <Input
+                  type="text"
+                  placeholder="Search cities…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-7 border-[#1F1F1F] bg-[#111] pl-8 text-xs text-white placeholder:text-[#555] focus:border-[#F97316]/50 focus:ring-0"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#555] hover:text-white"
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setSearchOpen(!searchOpen)}
+                className="sm:hidden p-1.5 text-[#A0A0A0] hover:text-white transition-colors"
+              >
+                <Search className="size-4" />
+              </button>
+            </>
           )}
-        </div>
 
-        {/* Mobile search toggle */}
-        <button
-          onClick={() => setSearchOpen(!searchOpen)}
-          className="sm:hidden p-2 text-[#A0A0A0] hover:text-white transition-colors"
-        >
-          <Search className="size-4" />
-        </button>
+          {/* Avatar */}
+          <div className="relative" ref={avatarRef}>
+            <button
+              onClick={() => setAvatarOpen(prev => !prev)}
+              className="flex items-center gap-1 focus:outline-none"
+            >
+              <div className="size-7 rounded-full bg-[#F97316] flex items-center justify-center text-black text-xs font-bold select-none">
+                {initials}
+              </div>
+              <ChevronDown className={cn('size-3 text-[#555] transition-transform', avatarOpen && 'rotate-180')} />
+            </button>
+
+            <AnimatePresence>
+              {avatarOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.1 }}
+                  className="absolute top-full right-0 mt-1.5 z-50 min-w-[140px] bg-[#111] border border-[#1F1F1F] rounded-sm shadow-xl overflow-hidden"
+                >
+                  <Link
+                    href="/profile"
+                    onClick={() => setAvatarOpen(false)}
+                    className="block px-3 py-2 text-sm text-[#A0A0A0] hover:text-white hover:bg-[#161616] transition-colors"
+                  >
+                    My Profile
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-3 py-2 text-sm text-[#A0A0A0] hover:text-white hover:bg-[#161616] transition-colors border-t border-[#1A1A1A]"
+                  >
+                    Sign Out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </header>
 
       {/* Mobile search bar */}
       <AnimatePresence>
-        {searchOpen && (
+        {searchOpen && view === 'world' && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="sm:hidden border-b border-[#1F1F1F] overflow-hidden z-40"
+            className="sm:hidden border-b border-[#1F1F1F] overflow-hidden z-40 bg-[#0A0A0A]"
           >
             <div className="px-3 py-2 flex items-center gap-2">
               <Search className="size-4 text-[#555] flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Search cities..."
+                placeholder="Search cities…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 h-8 bg-transparent text-sm text-white placeholder:text-[#555] focus:outline-none"
@@ -210,7 +304,10 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
                   <X className="size-4" />
                 </button>
               )}
-              <button onClick={() => { setSearchOpen(false); setSearchQuery('') }} className="text-[#555] text-xs">
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+                className="text-[#555] text-xs"
+              >
                 Done
               </button>
             </div>
@@ -218,7 +315,7 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
         )}
       </AnimatePresence>
 
-      {/* Map Canvas */}
+      {/* ── Map Canvas ── */}
       <main className="relative flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {view === 'world' ? (
@@ -226,14 +323,14 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
               key="world"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25 }}
               ref={mapRef}
               className={cn(
-                'absolute inset-0 touch-none',
+                'absolute inset-0 touch-none select-none',
                 isDragging ? 'cursor-grabbing' : 'cursor-grab'
               )}
-              style={{ background: '#0D0D0D' }}
+              style={{ background: '#0A0A0A' }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -242,31 +339,36 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {/* Grid pattern */}
+              {/* Dot grid texture */}
               <div
-                className="absolute inset-0 opacity-[0.03]"
+                className="absolute inset-0 pointer-events-none"
                 style={{
-                  backgroundImage: `
-                    linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-                  `,
-                  backgroundSize: '50px 50px',
+                  backgroundImage: 'radial-gradient(circle, #222 1px, transparent 1px)',
+                  backgroundSize: '36px 36px',
+                  opacity: 0.55,
                 }}
               />
 
-              {/* Topo pattern */}
-              <svg className="absolute inset-0 size-full opacity-[0.02]" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="topo" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
-                    <circle cx="100" cy="100" r="80" fill="none" stroke="white" strokeWidth="0.5" />
-                    <circle cx="100" cy="100" r="60" fill="none" stroke="white" strokeWidth="0.5" />
-                    <circle cx="100" cy="100" r="40" fill="none" stroke="white" strokeWidth="0.5" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#topo)" />
-              </svg>
+              {/* Radial atmosphere */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(ellipse at 50% 40%, rgba(15,20,15,0.9) 0%, transparent 65%)',
+                }}
+              />
 
-              {/* Map content with pan offset */}
+              {/* Decorative map markers */}
+              {MAP_DECORATIONS.map((d, i) => (
+                <span
+                  key={i}
+                  className="absolute pointer-events-none select-none text-[#1E1E1E] text-xs font-mono"
+                  style={{ left: d.left, top: d.top, transform: 'translate(-50%,-50%)' }}
+                >
+                  {d.type}
+                </span>
+              ))}
+
+              {/* Panned map content */}
               <div
                 className="absolute inset-0"
                 style={{
@@ -286,13 +388,14 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
                     city={city}
                     onClick={() => handleCityClick(city)}
                     isFiltered={searchQuery ? !filteredCities.includes(city) : false}
+                    isMobile={isMobile}
                   />
                 ))}
               </div>
 
               {searchQuery && filteredCities.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="rounded-lg bg-[#111]/90 px-6 py-4 text-center backdrop-blur">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="bg-[#111]/90 border border-[#1F1F1F] rounded-sm px-5 py-3 text-center backdrop-blur">
                     <p className="text-sm text-[#A0A0A0]">No cities found for &quot;{searchQuery}&quot;</p>
                   </div>
                 </div>
@@ -301,10 +404,10 @@ export function WorldMapClient({ cities }: WorldMapClientProps) {
           ) : (
             <motion.div
               key="city"
-              initial={{ opacity: 0, scale: 1.05 }}
+              initial={{ opacity: 0, scale: 1.03 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25 }}
               className="absolute inset-0"
             >
               {selectedCity && (

@@ -52,8 +52,8 @@ export function OrangeScrollIndicator({ sectionIds, className }: OrangeScrollInd
 
   const label = atBottom ? 'BACK TO TOP' : 'SCROLL DOWN'
   const ringText = atBottom
-    ? 'BACK TO TOP • BACK TO TOP • BACK TO TOP •'
-    : 'SCROLL DOWN • SCROLL DOWN • SCROLL DOWN •'
+    ? 'BACK TO TOP <-> BACK TO TOP <->'
+    : 'SCROLL DOWN <> SCROLL DOWN <>'
 
   return (
     <div className="group">
@@ -92,7 +92,7 @@ export function OrangeScrollIndicator({ sectionIds, className }: OrangeScrollInd
         {/* Center orange button — scales on hover, no glow */}
         <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-[#F97316] hover:bg-[#EA6B0A] flex items-center justify-center cursor-pointer transition-all duration-300 group-hover:scale-110">
           {atBottom
-            ? <ChevronUp  className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={2.5} />
+            ? <ChevronUp className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={2.5} />
             : <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={2.5} />
           }
         </div>

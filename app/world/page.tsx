@@ -16,7 +16,7 @@ export default async function WorldPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('university_id')
+    .select('university_id, name')
     .eq('id', user.id)
     .single()
 
@@ -27,8 +27,10 @@ export default async function WorldPage() {
     .eq('is_published', true)
     .order('created_at')
 
+  const userName = (userData as { name?: string } | null)?.name ?? undefined
+
   if (!rawCities || rawCities.length === 0) {
-    return <WorldMapClient cities={[]} userId={user.id} universityId={userData?.university_id ?? undefined} />
+    return <WorldMapClient cities={[]} userId={user.id} universityId={userData?.university_id ?? undefined} userName={userName} />
   }
 
   const cityIds = rawCities.map((c: { id: string }) => c.id)
@@ -124,6 +126,7 @@ export default async function WorldPage() {
       cities={cities}
       userId={user.id}
       universityId={userData?.university_id ?? undefined}
+      userName={userName}
     />
   )
 }

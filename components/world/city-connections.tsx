@@ -5,11 +5,10 @@ import type { WorldCityMapped } from './world-map-client'
 interface CityConnectionsProps {
   cities: WorldCityMapped[]
   connections: [string, string][]
-  highlightCity?: string[]  // city slugs to highlight
+  highlightCity?: string[]
 }
 
 export function CityConnections({ cities, connections, highlightCity }: CityConnectionsProps) {
-  // Build slug → position map
   const positionBySlug = cities.reduce((acc, city) => {
     acc[city.slug] = {
       left: parseFloat(city.position.left),
@@ -24,17 +23,20 @@ export function CityConnections({ cities, connections, highlightCity }: CityConn
       style={{ zIndex: 0 }}
     >
       <defs>
-        <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#F97316" stopOpacity="0.1" />
-          <stop offset="50%" stopColor="#F97316" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#F97316" stopOpacity="0.1" />
-        </linearGradient>
+        <style>{`
+          .city-line {
+            stroke-dashoffset: 0;
+            animation: dashflow 24s linear infinite;
+          }
+          @keyframes dashflow {
+            to { stroke-dashoffset: -200; }
+          }
+        `}</style>
       </defs>
 
       {connections.map(([fromSlug, toSlug], index) => {
         const from = positionBySlug[fromSlug]
         const to = positionBySlug[toSlug]
-
         if (!from || !to) return null
 
         const isHighlighted = highlightCity
@@ -50,9 +52,9 @@ export function CityConnections({ cities, connections, highlightCity }: CityConn
             y2={`${to.top}%`}
             stroke="#F97316"
             strokeWidth="1"
-            strokeOpacity={isHighlighted ? 0.2 : 0.05}
-            strokeDasharray="6 4"
-            className="transition-opacity duration-300"
+            strokeOpacity={isHighlighted ? 0.18 : 0.04}
+            strokeDasharray="5 8"
+            className="city-line transition-opacity duration-300"
           />
         )
       })}

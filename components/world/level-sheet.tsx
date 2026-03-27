@@ -44,32 +44,44 @@ const resourceIcons: Record<string, React.ElementType> = {
 export function LevelSheet({ level, cityColor, onClose }: LevelSheetProps) {
   const [components, setComponents] = useState<ComponentWithProgress[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [expandedComponent, setExpandedComponent] = useState<string | null>(null)
   const [completingId, setCompletingId] = useState<string | null>(null)
 
-  // Fetch real components when level changes
   useEffect(() => {
+    if (!level?.slug) {
+      setError('Invalid level')
+      setIsLoading(false)
+      return
+    }
+
     let cancelled = false
     setIsLoading(true)
     setComponents([])
+    setError(null)
 
     fetch(`/api/world/level/${level.slug}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
       .then(data => {
         if (!cancelled) {
           setComponents(data.components ?? [])
           setIsLoading(false)
         }
       })
-      .catch(() => {
+      .catch(err => {
         if (!cancelled) {
-          toast.error('Failed to load level components.')
+          console.error('Level fetch error:', err)
+          setError('Failed to load. Tap to retry.')
           setIsLoading(false)
         }
       })
 
     return () => { cancelled = true }
-  }, [level.slug])
+  }, [level.slug, retryCount])
 
   const completedCount = components.filter(c => c.progress_status === 'completed').length
   const progressPercent = components.length > 0
@@ -180,6 +192,16 @@ export function LevelSheet({ level, cityColor, onClose }: LevelSheetProps) {
         {isLoading ? (
           <div className="flex h-32 items-center justify-center">
             <Loader2 className="size-5 animate-spin text-[#555]" />
+          </div>
+        ) : error ? (
+          <div className="flex h-32 flex-col items-center justify-center gap-3 text-center">
+            <p className="text-sm text-[#555]">{error}</p>
+            <button
+              onClick={() => setRetryCount(c => c + 1)}
+              className="text-[#F97316] text-sm underline underline-offset-2 hover:text-[#EA6B0A] transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : (
           <div className="space-y-2">

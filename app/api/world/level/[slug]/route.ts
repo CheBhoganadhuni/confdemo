@@ -5,6 +5,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  try {
   const auth = await requireAuth()
   if (!auth.ok) return auth.response
   const { supabase, userId } = auth
@@ -85,4 +86,8 @@ export async function GET(
     total_count: totalCount,
     estimated_hours_remaining: Math.round((remainingMinutes / 60) * 10) / 10,
   })
+  } catch (error) {
+    console.error('Level API error:', error)
+    return NextResponse.json({ error: 'server_error', components: [] }, { status: 500 })
+  }
 }

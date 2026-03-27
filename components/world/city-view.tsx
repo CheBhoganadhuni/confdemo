@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Clock, Layers, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
+import { DynamicIcon } from '@/components/ui/dynamic-icon'
 import { LevelSheet } from './level-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { WorldCityMapped } from './world-map-client'
@@ -102,10 +103,10 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
         <div className="space-y-3 border-b border-[#1F1F1F] p-4">
           <div className="flex items-start gap-3">
             <div
-              className="flex size-10 items-center justify-center rounded-lg text-xl"
+              className="flex size-10 items-center justify-center rounded-lg"
               style={{ backgroundColor: `color-mix(in srgb, ${city.color} 15%, #111)` }}
             >
-              {city.icon}
+              <DynamicIcon name={city.icon} size={20} color={city.color} />
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-white">{city.title}</h2>
@@ -195,10 +196,10 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
         <div className="space-y-4 border-b border-[#1F1F1F] p-4">
           <div className="flex items-start gap-3">
             <div
-              className="flex size-12 items-center justify-center rounded-lg text-2xl"
+              className="flex size-12 items-center justify-center rounded-lg"
               style={{ backgroundColor: `color-mix(in srgb, ${city.color} 15%, #111)` }}
             >
-              {city.icon}
+              <DynamicIcon name={city.icon} size={24} color={city.color} />
             </div>
             <div className="flex-1">
               <h2 className="font-semibold text-white">{city.title}</h2>
@@ -255,10 +256,10 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
         {!selectedLevel ? (
           <div className="relative flex h-full flex-col items-center justify-center p-8 text-center">
             <div
-              className="mb-4 flex size-20 items-center justify-center rounded-2xl text-4xl"
+              className="mb-4 flex size-20 items-center justify-center rounded-2xl"
               style={{ backgroundColor: `color-mix(in srgb, ${city.color} 15%, #111)` }}
             >
-              {city.icon}
+              <DynamicIcon name={city.icon} size={36} color={city.color} />
             </div>
             <h3 className="text-xl font-semibold text-white">{city.title}</h3>
             <p className="mt-2 max-w-md text-sm text-[#555]">{city.description}</p>
