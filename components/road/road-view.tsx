@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useBackButtonClose } from '@/hooks/use-back-button-close'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -49,6 +50,9 @@ const DAILY_LIMIT = 120
 export function RoadView({ road, todayMinutes, onMinutesUpdate, isOwner, onDeleted }: RoadViewProps) {
   const [components, setComponents] = useState<ComponentWithProgress[]>(road.components)
   const [selectedComponent, setSelectedComponent] = useState<ComponentWithProgress | null>(null)
+
+  // Back-swipe closes the component sheet before leaving /road
+  useBackButtonClose(selectedComponent !== null, () => setSelectedComponent(null))
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDelete = async () => {

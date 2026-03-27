@@ -16,6 +16,7 @@ import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
 import { CityCard } from './city-card'
 import type { CityWithProgress } from '@/lib/types/database'
+import { useBackButtonClose } from '@/hooks/use-back-button-close'
 
 export type WorldCityMapped = CityWithProgress & {
   position: { left: string; top: string }
@@ -85,6 +86,7 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
+
   const [isDragging, setIsDragging] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
@@ -122,6 +124,17 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
     setView('world')
     setSelectedCity(null)
   }, [])
+
+  // Single back-button hook for the whole world route.
+  // Priority: city view > city card > search.
+  // When a layer transitions to the next (e.g. cityCard → cityView) isOpen stays
+  // true so no push/pop races happen — only the onClose ref updates.
+  const worldBackAction =
+    view === 'city'       ? handleBackToWorld :
+    cityCard !== null     ? () => setCityCard(null) :
+    searchOpen            ? () => { setSearchOpen(false); setSearchQuery('') } :
+    null
+  useBackButtonClose(worldBackAction !== null, () => worldBackAction?.())
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-city-node]')) return

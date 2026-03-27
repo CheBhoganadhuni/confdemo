@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useBackButtonClose } from '@/hooks/use-back-button-close'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
@@ -72,6 +73,9 @@ export function RoadPageClient({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [todayMinutes, setTodayMinutes] = useState(initialTodayMinutes)
   const [myRoads, setMyRoads] = useState<RoadSummary[]>(customRoads)
+
+  // Back-swipe on mobile closes the road browser sheet instead of leaving /road
+  useBackButtonClose(mobileMenuOpen, () => setMobileMenuOpen(false))
 
   const currentRoads =
     activeTab === 'presets' ? presetRoads :

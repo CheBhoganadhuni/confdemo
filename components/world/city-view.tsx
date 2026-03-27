@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Clock, Layers, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
 import { DynamicIcon } from '@/components/ui/dynamic-icon'
 import { LevelSheet } from './level-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useBackButtonClose } from '@/hooks/use-back-button-close'
 import type { WorldCityMapped } from './world-map-client'
 import type { LevelWithProgress } from '@/lib/types/database'
 
@@ -20,6 +21,9 @@ interface CityViewProps {
 export function CityView({ city, levels, onBack }: CityViewProps) {
   const [selectedLevel, setSelectedLevel] = useState<LevelWithProgress | null>(null)
   const isMobile = useIsMobile()
+
+  // Back-swipe closes the level sheet before leaving the city view
+  useBackButtonClose(selectedLevel !== null, () => setSelectedLevel(null))
 
   const totalHours = levels.reduce((sum, l) => sum + (l.estimated_hours ?? 0), 0)
   const completedLevels = levels.filter(l => l.completion_percent === 100).length
@@ -93,11 +97,11 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
     return (
       <div className="flex flex-col h-full" style={{ background: '#0A0A0A' }}>
         <button
-          onClick={onBack}
+          onClick={selectedLevel ? () => setSelectedLevel(null) : onBack}
           className="flex items-center gap-2 border-b border-[#1F1F1F] px-4 py-3 text-sm text-[#A0A0A0] transition-colors hover:text-white"
         >
           <ArrowLeft className="size-4" />
-          <span>Back to World</span>
+          <span>{selectedLevel ? 'Back to Levels' : 'Back to World'}</span>
         </button>
 
         <div className="space-y-3 border-b border-[#1F1F1F] p-4">
@@ -146,6 +150,7 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
           {levelList}
         </div>
 
+        <AnimatePresence>
         {selectedLevel && (
           <motion.div
             className="absolute inset-0 z-20 bg-[#0D0D0D]"
@@ -172,6 +177,7 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
       </div>
     )
   }
@@ -186,11 +192,11 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
         transition={{ duration: 0.3, delay: 0.1 }}
       >
         <button
-          onClick={onBack}
+          onClick={selectedLevel ? () => setSelectedLevel(null) : onBack}
           className="flex items-center gap-2 border-b border-[#1F1F1F] px-4 py-3 text-sm text-[#A0A0A0] transition-colors hover:text-white"
         >
           <ArrowLeft className="size-4" />
-          <span>Back to World</span>
+          <span>{selectedLevel ? 'Back to Levels' : 'Back to World'}</span>
         </button>
 
         <div className="space-y-4 border-b border-[#1F1F1F] p-4">
