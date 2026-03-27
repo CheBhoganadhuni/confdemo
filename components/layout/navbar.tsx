@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Clock, Zap, Menu, User, LogOut } from 'lucide-react'
+import { Clock, Zap, Menu, User, LogOut, Home, Map, Route, X } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +14,7 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
-  SheetDescription,
-  SheetTrigger,
 } from '@/components/ui/sheet'
 import { SignInModal } from '@/components/auth/sign-in-modal'
 import { createClient } from '@/lib/supabase/client'
@@ -29,8 +26,16 @@ interface AuthUser {
   token_count: number
 }
 
+const NAV_LINKS = [
+  { href: '/',        label: 'Home',    Icon: Home  },
+  { href: '/world',   label: 'World',   Icon: Map   },
+  { href: '/road',    label: 'Roads',   Icon: Route },
+  { href: '/profile', label: 'Profile', Icon: User  },
+]
+
 export function Navbar() {
   const router = useRouter()
+  const pathname = usePathname()
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [signInOpen, setSignInOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -38,10 +43,7 @@ export function Navbar() {
   useEffect(() => {
     fetch('/api/user/me')
       .then(res => {
-        if (!res.ok) {
-          setAuthUser(null)
-          return null
-        }
+        if (!res.ok) { setAuthUser(null); return null }
         return res.json()
       })
       .then((data: AuthUser | null) => {
@@ -64,25 +66,45 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 h-14 bg-[rgba(10,10,10,0.85)] backdrop-blur-md border-b border-[#1F1F1F]">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-14 bg-[rgba(10,10,10,0.90)] backdrop-blur-md border-b border-[#1F1F1F]">
         <div className="h-full max-w-7xl mx-auto px-4 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="font-bold tracking-tight text-white text-lg">
+          <Link href="/" className="font-bold tracking-tight text-white text-lg flex-shrink-0">
             Jnana Sethu<span className="text-[#F97316]">.</span>
           </Link>
 
           {/* Desktop Right Side */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-1">
             {authUser ? (
               <>
+                {/* Nav links */}
+                <div className="flex items-center gap-1 mr-4">
+                  {NAV_LINKS.slice(0, 3).map(({ href, label }) => {
+                    const isActive = pathname === href
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+                          isActive
+                            ? 'text-white font-medium'
+                            : 'text-[#A0A0A0] hover:text-white'
+                        }`}
+                      >
+                        {label}
+                      </Link>
+                    )
+                  })}
+                </div>
+
                 {/* Study Time */}
-                <div className="flex items-center gap-1.5 text-xs text-[#A0A0A0]">
+                <div className="flex items-center gap-1.5 text-xs text-[#A0A0A0] mr-3">
                   <Clock className="w-4 h-4" />
                   <span>{studyTime}</span>
                 </div>
 
                 {/* Bolts */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 mr-4">
                   <Zap className="w-4 h-4 text-[#F97316]" />
                   <span className="text-sm text-white">{bolts}</span>
                 </div>
@@ -124,88 +146,126 @@ export function Navbar() {
 
           {/* Mobile Hamburger */}
           <div className="md:hidden">
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <button className="p-2 text-white hover:text-[#F97316] transition-colors">
-                  <Menu className="w-5 h-5" />
-                </button>
-              </SheetTrigger>
-              <SheetContent side="right" className="bg-[#0A0A0A] border-l border-[#1F1F1F] w-72">
-                <SheetHeader>
-                  <SheetTitle className="text-white font-bold tracking-tight text-left">
-                    Jnana Sethu<span className="text-[#F97316]">.</span>
-                  </SheetTitle>
-                  <SheetDescription className="sr-only">Navigation menu</SheetDescription>
-                </SheetHeader>
-
-                <div className="mt-8 flex flex-col gap-4">
-                  {authUser ? (
-                    <>
-                      {/* User Info */}
-                      <div className="flex items-center gap-3 pb-4 border-b border-[#1F1F1F]">
-                        <div className="w-10 h-10 rounded-full bg-[#F97316] text-black font-bold text-sm flex items-center justify-center">
-                          {getInitial(authUser.name)}
-                        </div>
-                        <div>
-                          <div className="text-white text-sm font-medium">{authUser.name}</div>
-                        </div>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="flex items-center justify-between py-3 px-2 bg-[#111111] rounded-sm">
-                        <div className="flex items-center gap-2 text-xs text-[#A0A0A0]">
-                          <Clock className="w-4 h-4" />
-                          <span>Today</span>
-                        </div>
-                        <span className="text-white text-sm">{studyTime}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between py-3 px-2 bg-[#111111] rounded-sm">
-                        <div className="flex items-center gap-2 text-xs text-[#A0A0A0]">
-                          <Zap className="w-4 h-4 text-[#F97316]" />
-                          <span>Bolts</span>
-                        </div>
-                        <span className="text-white text-sm">{bolts}</span>
-                      </div>
-
-                      {/* Links */}
-                      <Link
-                        href="/profile"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-3 py-3 text-white hover:text-[#F97316] transition-colors"
-                      >
-                        <User className="w-4 h-4" />
-                        My Profile
-                      </Link>
-
-                      <button
-                        onClick={() => {
-                          handleSignOut()
-                          setMobileMenuOpen(false)
-                        }}
-                        className="flex items-center gap-3 py-3 text-[#A0A0A0] hover:text-white transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Sign Out
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setMobileMenuOpen(false)
-                        setSignInOpen(true)
-                      }}
-                      className="w-full bg-[#F97316] hover:bg-[#EA6B0A] text-black font-bold py-3 rounded-sm transition-colors"
-                    >
-                      Sign In
-                    </button>
-                  )}
-                </div>
-              </SheetContent>
-            </Sheet>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 text-white hover:text-[#F97316] transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </nav>
+
+      {/* Mobile Sheet — custom clean implementation */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent
+          side="right"
+          className="bg-[#0A0A0A] border-l border-[#1F1F1F] w-72 p-0 flex flex-col [&>button]:hidden"
+        >
+          {/* Accessible title for screen readers */}
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 h-14 border-b border-[#1F1F1F] flex-shrink-0">
+            <span className="font-bold text-white text-base tracking-tight">
+              Jnana Sethu<span className="text-[#F97316]">.</span>
+            </span>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-[#555] hover:text-white transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {authUser ? (
+            <div className="flex flex-col flex-1 overflow-y-auto">
+              {/* User row */}
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-[#1F1F1F]">
+                <div className="w-9 h-9 rounded-full bg-[#F97316] text-black font-bold text-sm flex items-center justify-center flex-shrink-0">
+                  {getInitial(authUser.name)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-white text-sm font-medium truncate">{authUser.name}</div>
+                </div>
+              </div>
+
+              {/* Nav links */}
+              <div className="py-2">
+                {NAV_LINKS.map(({ href, label, Icon }) => {
+                  const isActive = pathname === href
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${
+                        isActive
+                          ? 'bg-[#111] text-[#F97316]'
+                          : 'text-white hover:bg-[#111]'
+                      }`}
+                    >
+                      <Icon
+                        className="w-[18px] h-[18px]"
+                        style={{ color: isActive ? '#F97316' : '#A0A0A0' }}
+                      />
+                      <span className="text-sm">{label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-[#1F1F1F] mx-5" />
+
+              {/* Stats row */}
+              <div className="flex items-center gap-4 px-5 py-3.5 text-xs text-[#555]">
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-[#F97316]" />
+                  {bolts} Bolts
+                </span>
+                <span>·</span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  {studyTime} today
+                </span>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-[#1F1F1F] mx-5" />
+
+              {/* Sign Out */}
+              <button
+                onClick={() => {
+                  handleSignOut()
+                  setMobileMenuOpen(false)
+                }}
+                className="flex items-center gap-3 px-5 py-3.5 text-sm text-[#555] hover:text-[#F97316] transition-colors w-full mt-auto"
+              >
+                <LogOut className="w-[18px] h-[18px]" />
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col flex-1 p-5">
+              <p className="text-[#555] text-sm mb-4">
+                Sign in to track your progress and access all features.
+              </p>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setSignInOpen(true)
+                }}
+                className="w-full bg-[#F97316] hover:bg-[#EA6B0A] text-black font-bold py-3 rounded-sm transition-colors"
+              >
+                Sign In
+              </button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Sign In Modal */}
       <SignInModal open={signInOpen} onOpenChange={setSignInOpen} />

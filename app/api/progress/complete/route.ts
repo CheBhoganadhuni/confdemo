@@ -36,13 +36,11 @@ export async function POST(req: Request) {
   if (existingProgress?.status === 'completed') {
     const { data: userData } = await supabase
       .from('users')
-      .select('xp_points, today_time_minutes')
+      .select('today_time_minutes')
       .eq('id', userId)
       .single()
     return NextResponse.json({
       success: true,
-      xp_earned: 0,
-      new_xp: userData?.xp_points ?? 0,
       today_time_minutes: userData?.today_time_minutes ?? 0,
       level_completed: false,
       already_completed: true,
@@ -52,7 +50,7 @@ export async function POST(req: Request) {
   // Get user's time tracking fields
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('today_time_minutes, today_date, xp_points')
+    .select('today_time_minutes, today_date')
     .eq('id', userId)
     .single()
 
@@ -96,17 +94,14 @@ export async function POST(req: Request) {
   )
 
   const newTodayMinutes = todayMinutes + duration
-  let xpEarned = 10
-  const newXp = (user.xp_points ?? 0) + xpEarned
 
-  // Update user stats
+  // Update user time — XP is reserved for quizzes (Phase 2)
   await supabase.from('users').update({
     today_time_minutes: newTodayMinutes,
     today_date: today,
-    xp_points: newXp,
   }).eq('id', userId)
 
-  // Check level completion for bonus XP
+  // Check level completion (no XP bonus — just for toast notification)
   let levelCompleted = false
   let levelSlug: string | undefined
 
@@ -119,7 +114,6 @@ export async function POST(req: Request) {
     const levelId = link.level_id
     const level = (link as any).levels
 
-    // All component IDs in this level
     const { data: siblingComps } = await supabase
       .from('level_components')
       .select('component_id')
@@ -138,19 +132,12 @@ export async function POST(req: Request) {
     if (doneCount === siblingIds.length) {
       levelCompleted = true
       levelSlug = level?.slug
-      xpEarned += 50
-      // Credit the level bonus XP
-      await supabase.from('users')
-        .update({ xp_points: newXp + 50 })
-        .eq('id', userId)
       break
     }
   }
 
   return NextResponse.json({
     success: true,
-    xp_earned: xpEarned,
-    new_xp: newXp + (levelCompleted ? 50 : 0),
     today_time_minutes: newTodayMinutes,
     level_completed: levelCompleted,
     level_slug: levelSlug,

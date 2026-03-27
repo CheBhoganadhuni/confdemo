@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect, Suspense } from 'react'
-import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion'
+import { motion, useScroll, useTransform, useSpring, useInView, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import { Navbar } from '@/components/layout/navbar'
-import { PolyBackground } from '@/components/ui/poly-background'
+import { AnimatedGeometry } from '@/components/ui/AnimatedGeometry'
 import { OrangeScrollIndicator } from '@/components/ui/orange-scroll-indicator'
 import { SignInModal } from '@/components/auth/sign-in-modal'
 import { AuthErrorToast } from '@/components/auth/AuthErrorToast'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Map, Route, User, Zap, Lock } from 'lucide-react'
 
 function FadeInSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null)
@@ -25,8 +26,227 @@ function FadeInSection({ children, className, delay = 0 }: { children: React.Rea
   )
 }
 
+// ── Feature cards data ─────────────────────────────────────────────────────
+const FEATURE_CARDS = [
+  {
+    id: 'world',
+    route: '/world',
+    tag: 'EXPLORE',
+    title: 'World Map',
+    subtitle: 'Every subject as a city. Every skill as a level.',
+    description:
+      'Navigate 10 themed cities across your 4-year curriculum. Discover what to learn, in what order, with hand-picked resources at every step.',
+    accent: '#10B981',
+    stats: ['10 Cities', '32 Levels', '200+ Resources'],
+    Icon: Map,
+    comingSoon: false,
+  },
+  {
+    id: 'road',
+    route: '/road',
+    tag: 'BUILD',
+    title: 'Custom Roads',
+    subtitle: 'Your path, your pace.',
+    description:
+      'Pick components from any city and build a personalized learning road. DSA + Backend? Systems + ML? You decide — we track all progress.',
+    accent: '#F97316',
+    stats: ['Any combination', 'Full progress tracking', 'Bolt rewards'],
+    Icon: Route,
+    comingSoon: false,
+  },
+  {
+    id: 'profile',
+    route: '/profile',
+    tag: 'TRACK',
+    title: 'Player Profile',
+    subtitle: 'See exactly what you\'ve mastered.',
+    description:
+      'Daily tasks earn bolts. Levels build your skill tree. Your profile shows what you actually learned — not just what you enrolled in.',
+    accent: '#3B82F6',
+    stats: ['Daily tasks', 'Skill tree', 'XP system'],
+    Icon: User,
+    comingSoon: false,
+  },
+  {
+    id: 'premium',
+    route: null,
+    tag: 'COMING SOON',
+    title: 'Premium',
+    subtitle: 'Quizzes, mock interviews, AI tutor.',
+    description:
+      'Everything that exists today stays free — forever. Premium adds extra tools at reasonable student pricing. Early users get priority access.',
+    accent: '#8B5CF6',
+    stats: ['Practice quizzes', 'Mock interviews', 'AI tutor'],
+    Icon: Lock,
+    comingSoon: true,
+  },
+]
+
+function FeatureCards() {
+  const [active, setActive] = useState(0)
+  const [direction, setDirection] = useState(1)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const goTo = (idx: number) => {
+    setDirection(idx > active ? 1 : -1)
+    setActive(idx)
+  }
+
+  // Auto-advance
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      const next = (active + 1) % FEATURE_CARDS.length
+      setDirection(1)
+      setActive(next)
+    }, 4500)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [active])
+
+  const card = FEATURE_CARDS[active]
+
+  const slideVariants = {
+    enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit:  (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
+  }
+
+  return (
+    <div>
+      {/* Card */}
+      <div
+        className="relative rounded-sm border overflow-hidden"
+        style={{ borderColor: `${card.accent}22` }}
+      >
+        {/* Accent glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(ellipse at 70% 30%, ${card.accent}14 0%, transparent 60%)`,
+          }}
+        />
+
+        <AnimatePresence custom={direction} mode="wait">
+          <motion.div
+            key={card.id}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative grid grid-cols-1 md:grid-cols-2 min-h-[280px] sm:min-h-[320px]"
+          >
+            {/* Left: text */}
+            <div className="p-7 sm:p-10 flex flex-col justify-between">
+              <div>
+                <span
+                  className="text-[10px] tracking-[0.2em] font-semibold"
+                  style={{ color: card.accent }}
+                >
+                  {card.tag}
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-black text-white mt-2 mb-3">
+                  {card.title}
+                </h3>
+                <p className="text-[#A0A0A0] text-xs mb-4">{card.subtitle}</p>
+                <p className="text-[#666] text-sm leading-relaxed">{card.description}</p>
+              </div>
+
+              <div className="flex items-center gap-3 mt-6 flex-wrap">
+                {card.stats.map((s) => (
+                  <span
+                    key={s}
+                    className="text-[11px] px-2.5 py-1 rounded-sm font-medium"
+                    style={{
+                      backgroundColor: `${card.accent}18`,
+                      color: card.accent,
+                      border: `1px solid ${card.accent}30`,
+                    }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+
+              {!card.comingSoon && card.route && (
+                <Link
+                  href={card.route}
+                  className="mt-5 inline-flex items-center gap-2 text-sm font-bold transition-colors"
+                  style={{ color: card.accent }}
+                >
+                  Explore {card.title}
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
+              {card.comingSoon && (
+                <div className="mt-5 inline-flex items-center gap-2 text-sm text-[#555]">
+                  <Lock className="w-3.5 h-3.5" />
+                  Coming soon — you&apos;re getting early access
+                </div>
+              )}
+            </div>
+
+            {/* Right: visual */}
+            <div
+              className="hidden md:flex items-center justify-center p-10 border-l"
+              style={{ borderColor: `${card.accent}18` }}
+            >
+              <div className="relative flex items-center justify-center">
+                {/* Large faded icon */}
+                <card.Icon
+                  className="w-32 h-32 opacity-[0.06]"
+                  style={{ color: card.accent }}
+                />
+                {/* Centered icon */}
+                <div
+                  className="absolute w-16 h-16 rounded-sm flex items-center justify-center"
+                  style={{ backgroundColor: `${card.accent}18`, border: `1px solid ${card.accent}30` }}
+                >
+                  <card.Icon className="w-7 h-7" style={{ color: card.accent }} />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Dot indicators + prev/next */}
+      <div className="flex items-center justify-center gap-2 mt-6">
+        {FEATURE_CARDS.map((c, i) => (
+          <button
+            key={c.id}
+            onClick={() => goTo(i)}
+            className="rounded-full transition-all duration-300"
+            style={{
+              width: i === active ? 24 : 8,
+              height: 8,
+              backgroundColor: i === active ? FEATURE_CARDS[active].accent : '#333',
+            }}
+            aria-label={c.title}
+          />
+        ))}
+      </div>
+
+      {/* Card labels */}
+      <div className="flex items-center justify-center gap-6 mt-4">
+        {FEATURE_CARDS.map((c, i) => (
+          <button
+            key={c.id}
+            onClick={() => goTo(i)}
+            className="text-[10px] tracking-widest uppercase transition-colors"
+            style={{ color: i === active ? FEATURE_CARDS[i].accent : '#333' }}
+          >
+            {c.tag}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
 
   // Lightweight auth check for button logic (Navbar manages its own display state)
@@ -34,6 +254,7 @@ export default function Home() {
     fetch('/api/user/me')
       .then(res => { if (res.ok) setIsLoggedIn(true) })
       .catch(() => {})
+      .finally(() => setAuthChecked(true))
   }, [])
 
   // Parallax for hero section — spring-smoothed
@@ -54,13 +275,7 @@ export default function Home() {
   })
   const sec2Y = useTransform(sec2Progress, [0, 1], [30, -30])
 
-  // Section 4 parallax for the browser mockup
   const section4Ref = useRef(null)
-  const { scrollYProgress: sec4Progress } = useScroll({
-    target: section4Ref,
-    offset: ['start end', 'end start'],
-  })
-  const sec4Scale = useTransform(sec4Progress, [0, 0.5, 1], [0.95, 1, 0.98])
 
   const handleOpenMap = () => {
     if (isLoggedIn) {
@@ -82,9 +297,10 @@ export default function Home() {
     <main className="bg-[#0A0A0A]">
       <Navbar />
 
-      {/* SECTION 1 — HERO */}
+      {/* ── SECTION 1 — HERO ── */}
       <section ref={heroRef} className="relative min-h-screen overflow-hidden bg-[#0A0A0A]">
-        <PolyBackground variant="corner-right" className="text-white" scrollReactive />
+        {/* Scroll-reactive animated geometry replaces static PolyBackground */}
+        <AnimatedGeometry className="absolute inset-0 w-full h-full" />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
@@ -126,11 +342,12 @@ export default function Home() {
                 You don&apos;t have to. This is the map.
               </motion.p>
 
+              {/* CTA — single primary button only */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
-                className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
+                className="mt-6 sm:mt-10"
               >
                 <button
                   onClick={handleOpenMap}
@@ -138,14 +355,6 @@ export default function Home() {
                 >
                   Open the Map
                   <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })
-                  }}
-                  className="border border-[#333] text-[#A0A0A0] hover:border-[#F97316] hover:text-white px-8 h-12 rounded-sm transition-colors"
-                >
-                  How it works
                 </button>
               </motion.div>
 
@@ -159,7 +368,7 @@ export default function Home() {
               </motion.p>
             </div>
 
-            {/* Right Column - Stats (desktop: vertical stack, mobile: horizontal grid) */}
+            {/* Right Column - Stats */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -169,9 +378,9 @@ export default function Home() {
               {/* Mobile: horizontal grid */}
               <div className="grid grid-cols-4 gap-2 sm:gap-3 lg:hidden">
                 {[
-                  { number: '2', label: 'Career Roads' },
-                  { number: '10', label: 'Themed Cities' },
-                  { number: '32', label: 'Skill Levels' },
+                  { number: '2',    label: 'Career Roads' },
+                  { number: '10',   label: 'Themed Cities' },
+                  { number: '32',   label: 'Skill Levels' },
                   { number: '200+', label: 'Resources' },
                 ].map((stat) => (
                   <div key={stat.label} className="text-center py-3 sm:py-4 border border-[#1F1F1F] rounded-sm">
@@ -186,9 +395,9 @@ export default function Home() {
               {/* Desktop: vertical aligned right */}
               <div className="hidden lg:flex flex-col items-end justify-center">
                 {[
-                  { number: '2', label: 'Career Roads' },
-                  { number: '10', label: 'Themed Cities' },
-                  { number: '32', label: 'Skill Levels' },
+                  { number: '2',    label: 'Career Roads' },
+                  { number: '10',   label: 'Themed Cities' },
+                  { number: '32',   label: 'Skill Levels' },
                   { number: '200+', label: 'Resources' },
                 ].map((stat, index) => (
                   <div
@@ -205,14 +414,9 @@ export default function Home() {
             </motion.div>
           </div>
         </motion.div>
-
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-4 right-3 sm:bottom-8 sm:right-8">
-          <OrangeScrollIndicator targetId="how-it-works" />
-        </div>
       </section>
 
-      {/* SECTION 2 — THE PROBLEM */}
+      {/* ── SECTION 2 — THE PROBLEM ── */}
       <section id="how-it-works" ref={section2Ref} className="bg-[#F5F5F3] py-14 sm:py-32">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-24">
@@ -250,10 +454,16 @@ export default function Home() {
                 <FadeInSection
                   key={item.num}
                   delay={index * 0.1}
-                  className={`py-5 sm:py-8 ${index !== 2 ? 'border-b border-[#D5D5D3]' : ''}`}
+                  className={`relative group pl-4 overflow-hidden cursor-default py-5 sm:py-8 transition-all duration-300 ${
+                    index !== 2 ? 'border-b border-[#D5D5D3]' : ''
+                  }`}
                 >
+                  {/* Animated left-border accent */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top rounded-full" />
                   <span className="font-mono text-xs text-[#F97316] mb-2 sm:mb-3 block">{item.num}</span>
-                  <h3 className="font-bold text-[#111] text-base sm:text-xl mb-1.5 sm:mb-2">{item.title}</h3>
+                  <h3 className="font-bold text-[#111] text-base sm:text-xl mb-1.5 sm:mb-2 group-hover:text-[#F97316] transition-colors duration-300">
+                    {item.title}
+                  </h3>
                   <p className="text-[#666] text-sm sm:text-base">{item.desc}</p>
                 </FadeInSection>
               ))}
@@ -262,9 +472,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECTION 3 — THE SOLUTION */}
-      <section className="relative bg-[#0A0A0A] py-14 sm:py-32 overflow-hidden">
-        <PolyBackground variant="corner-left" className="text-white" scrollReactive />
+      {/* ── SECTION 3 — THE SOLUTION ── */}
+      <section id="section-solution" className="relative bg-[#0A0A0A] py-14 sm:py-32 overflow-hidden">
+        {/* Scroll-reactive animated geometry */}
+        <AnimatedGeometry className="absolute inset-0 w-full h-full" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
           <FadeInSection>
@@ -299,10 +510,18 @@ export default function Home() {
               <FadeInSection
                 key={col.num}
                 delay={index * 0.12}
-                className={`px-4 sm:px-6 py-5 sm:py-8 ${index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''} ${index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''}`}
+                className={`relative group overflow-hidden cursor-default transition-all duration-300 px-4 sm:px-6 py-5 sm:py-8 ${
+                  index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''
+                } ${
+                  index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''
+                }`}
               >
+                {/* Animated left-border accent */}
+                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top rounded-full" />
                 <span className="text-xs font-mono text-[#F97316] mb-2 sm:mb-4 block">{col.num}</span>
-                <h3 className="font-bold text-white text-base sm:text-xl mb-1.5 sm:mb-3">{col.title}</h3>
+                <h3 className="font-bold text-white text-base sm:text-xl mb-1.5 sm:mb-3 group-hover:text-[#F97316] transition-colors duration-300">
+                  {col.title}
+                </h3>
                 <p className="text-[#A0A0A0] text-sm leading-relaxed">{col.desc}</p>
               </FadeInSection>
             ))}
@@ -310,123 +529,127 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SECTION 4 — THE PRODUCT GLIMPSE */}
-      <section ref={section4Ref} className="bg-[#0F0F0F] py-14 sm:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+      {/* ── SECTION 4 — FEATURE CARDS ── */}
+      <section id="section-glimpse" ref={section4Ref} className="bg-[#0A0A0A] py-14 sm:py-24 overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <FadeInSection>
-            <h2 className="text-2xl sm:text-4xl tracking-tight text-center mb-3 sm:mb-6">
-              <span className="font-light text-[#A0A0A0]">See</span>
-              <span className="font-black text-white"> everything</span>
-              <br />
-              <span className="font-light text-[#A0A0A0]">at once.</span>
+            <span className="text-[10px] tracking-[0.2em] text-[#F97316] font-semibold mb-4 block">
+              WHAT&apos;S INSIDE
+            </span>
+            <h2 className="text-2xl sm:text-4xl tracking-tight mb-10 sm:mb-14">
+              <span className="font-light text-[#A0A0A0]">Four pillars.</span>
+              <span className="font-black text-white"> One platform.</span>
             </h2>
-            <p className="text-center text-[#555] mb-6 sm:mb-12 max-w-lg mx-auto text-sm sm:text-base">
-              Every city, every level, every resource — mapped and navigable.
-              Your entire 4-year syllabus, visualized.
+          </FadeInSection>
+
+          <FeatureCards />
+        </div>
+      </section>
+
+      {/* ── SECTION 5 — AUTH HOOK — hidden for signed-in users ── */}
+      {(!authChecked || !isLoggedIn) && (
+        <section id="section-cta" className="relative bg-[#0A0A0A] py-16 sm:py-32 overflow-hidden">
+          <AnimatedGeometry className="absolute inset-0 w-full h-full" />
+
+          <FadeInSection className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
+            <h2 className="text-2xl sm:text-5xl tracking-tight mb-3 sm:mb-6">
+              <span className="block font-light text-[#A0A0A0]">Ready to stop</span>
+              <span className="block font-black text-white">guessing?</span>
+            </h2>
+            <p className="text-[#A0A0A0] mb-6 sm:mb-10 text-sm sm:text-base">
+              Jnana Sethu is free for all students at partnered universities.
+            </p>
+            <button
+              onClick={handleStartFree}
+              className="bg-[#F97316] hover:bg-[#EA6B0A] text-black font-bold px-8 sm:px-12 h-12 sm:h-14 rounded-sm text-sm sm:text-base transition-colors inline-flex items-center gap-2"
+            >
+              Start for free
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <p className="text-[#555] text-xs mt-4">
+              No signup form. Just your college Google account.
             </p>
           </FadeInSection>
+        </section>
+      )}
 
-          <FadeInSection delay={0.15}>
-            <motion.div
-              className="rounded-lg border border-[#222] overflow-hidden will-change-transform"
-              style={{ scale: sec4Scale }}
-            >
-              <div className="bg-[#161616] px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-3">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#FF5F56]" />
-                  <div className="w-2 h-2 rounded-full bg-[#FFBD2E]" />
-                  <div className="w-2 h-2 rounded-full bg-[#27CA40]" />
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="bg-[#0A0A0A] rounded-sm px-3 sm:px-4 py-1 text-[10px] sm:text-xs text-[#555]">
-                    jnanasethu.com/world
-                  </div>
-                </div>
-              </div>
-              <div className="bg-[#0A0A0A] aspect-video flex flex-col items-center justify-center p-4 sm:p-8">
-                <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white mb-2 text-center">/world — The Learning Map</div>
-                <p className="text-[#555] text-xs sm:text-sm">Explore 10 cities, 32 levels, 200+ resources</p>
-              </div>
-            </motion.div>
-          </FadeInSection>
-        </div>
-      </section>
-
-      {/* SECTION 5 — AUTH HOOK */}
-      <section className="relative bg-[#0A0A0A] py-16 sm:py-32 overflow-hidden">
-        <PolyBackground variant="full" className="text-white opacity-50" scrollReactive />
-
-        <FadeInSection className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-2xl sm:text-5xl tracking-tight mb-3 sm:mb-6">
-            <span className="block font-light text-[#A0A0A0]">Ready to stop</span>
-            <span className="block font-black text-white">guessing?</span>
-          </h2>
-          <p className="text-[#A0A0A0] mb-6 sm:mb-10 text-sm sm:text-base">
-            Jnana Sethu is free for all students at partnered universities.
-          </p>
-          <button
-            onClick={handleStartFree}
-            className="bg-[#F97316] hover:bg-[#EA6B0A] text-black font-bold px-8 sm:px-12 h-12 sm:h-14 rounded-sm text-sm sm:text-base transition-colors inline-flex items-center gap-2"
-          >
-            Start for free
-            <ArrowRight className="w-4 h-4" />
-          </button>
-          <p className="text-[#555] text-xs mt-4">
-            No signup form. Just your college Google account.
-          </p>
-        </FadeInSection>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="bg-[#0A0A0A] border-t border-[#1F1F1F] py-8 sm:py-16">
+      {/* ── FOOTER ── */}
+      <footer id="section-footer" className="bg-[#0A0A0A] border-t border-[#1F1F1F] pt-10 sm:pt-16 pb-6 sm:pb-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col gap-6 sm:gap-12 lg:flex-row lg:justify-between">
-            {/* Left */}
-            <div>
-              <div className="font-bold text-white text-lg tracking-tight">
+
+          {/* Top row */}
+          <div className="flex flex-col gap-10 sm:gap-12 lg:flex-row lg:justify-between lg:items-start mb-10 sm:mb-14">
+
+            {/* Brand */}
+            <div className="max-w-xs">
+              <div className="font-bold text-white text-lg tracking-tight mb-2">
                 Jnana Sethu<span className="text-[#F97316]">.</span>
               </div>
-              <p className="text-[#555] text-sm mt-2">
-                A bridge of knowledge — from seniors to juniors.
+              <p className="text-[#555] text-sm leading-relaxed">
+                A bridge of knowledge — structured learning paths built by seniors, for juniors.
               </p>
-              <a
-                href="mailto:contact@jnanasethu.com"
-                className="text-[#F97316] text-sm mt-3 inline-block hover:underline"
-              >
-                contact@jnanasethu.com
-              </a>
             </div>
 
-            {/* Right */}
+            {/* Nav links */}
             <div>
-              <span className="text-[10px] tracking-widest text-[#555] uppercase mb-3 block">
-                Reach us
+              <span className="text-[10px] tracking-widest text-[#555] uppercase mb-4 block">
+                Explore
               </span>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                }}
-                className="flex"
-              >
-                <input
-                  type="email"
-                  placeholder="Your email"
-                  className="bg-[#111] border border-[#222] rounded-l-sm px-3 sm:px-4 h-11 text-white text-sm placeholder:text-[#555] focus:outline-none focus:border-[#F97316] w-40 sm:w-48 md:w-64"
-                />
-                <button
-                  type="submit"
-                  className="bg-[#F97316] hover:bg-[#EA6B0A] px-4 h-11 rounded-r-sm transition-colors flex items-center justify-center"
-                >
-                  <ArrowRight className="w-4 h-4 text-black" />
-                </button>
-              </form>
-              <p className="text-[#555] text-xs mt-3">
-                University partnerships? Email us.
+              <ul className="flex flex-col gap-3">
+                {[
+                  { href: '/world', label: 'World Map' },
+                  { href: '/road',  label: 'Roads' },
+                  { href: '/profile', label: 'My Profile' },
+                ].map(({ href, label }) => (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      className="text-[#A0A0A0] text-sm hover:text-[#F97316] transition-colors"
+                    >
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* University partnership CTA */}
+            <div className="max-w-sm">
+              <span className="text-[10px] tracking-widest text-[#555] uppercase mb-4 block">
+                Partnerships
+              </span>
+              <p className="text-[#A0A0A0] text-sm leading-relaxed mb-4">
+                Want to bring Jnana Sethu to your university? We onboard colleges free of charge — students get full access.
               </p>
+              <a
+                href="mailto:partnerships@jnanasethu.com"
+                className="inline-flex items-center gap-2 bg-transparent border border-[#333] hover:border-[#F97316] text-white hover:text-[#F97316] text-sm px-4 py-2 rounded-sm transition-colors"
+              >
+                partnerships@jnanasethu.com
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
+
+          {/* Bottom copyright bar */}
+          <div className="border-t border-[#1F1F1F] pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
+            <p className="text-[#444] text-xs">
+              © {new Date().getFullYear()} Jnana Sethu. Made with ♥ by students, for students.
+            </p>
+            <p className="text-[#333] text-xs">
+              Free for all students at partnered universities.
+            </p>
+          </div>
+
         </div>
       </footer>
+
+      {/* ── FIXED SCROLL INDICATOR — desktop/tablet only ── */}
+      <div className="fixed bottom-8 right-8 z-50 hidden md:flex">
+        <OrangeScrollIndicator
+          sectionIds={['how-it-works', 'section-solution', 'section-glimpse', 'section-cta', 'section-footer']}
+        />
+      </div>
 
       <SignInModal open={signInOpen} onOpenChange={setSignInOpen} />
 

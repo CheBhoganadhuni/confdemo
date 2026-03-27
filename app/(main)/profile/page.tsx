@@ -54,6 +54,7 @@ export default async function ProfilePage() {
     token_count: userData.token_count ?? 0,
     xp_points: userData.xp_points ?? 0,
     today_minutes: todayMinutes,
+    github_username: (userData as { github_username?: string | null }).github_username ?? null,
   }
 
   // === DAILY TASKS ===
@@ -184,7 +185,7 @@ export default async function ProfilePage() {
   // === SKILLS (completed levels) ===
   const { data: allLevels } = await supabase
     .from('levels')
-    .select('id, title, city_id')
+    .select('id, slug, title, icon, color, city_id')
     .eq('is_published', true)
 
   const levelIds = (allLevels ?? []).map((l: { id: string }) => l.id)
@@ -226,7 +227,9 @@ export default async function ProfilePage() {
 
   // Build completed levels (where user has any progress)
   const completedLevels: ProfileCompletedLevel[] = []
-  for (const level of (allLevels ?? []) as Array<{ id: string; title: string; city_id: string }>) {
+  for (const level of (allLevels ?? []) as Array<{
+    id: string; slug: string; title: string; icon?: string; color?: string; city_id: string
+  }>) {
     const comps = compsByLevel.get(level.id) ?? []
     if (comps.length === 0) continue
     const doneCount = comps.filter(id => completedCompIds.has(id)).length
@@ -235,11 +238,16 @@ export default async function ProfilePage() {
     const city = cityMap.get(level.city_id)
     completedLevels.push({
       id: level.id,
+      slug: level.slug,
       title: level.title,
+      icon: level.icon ?? 'BookOpen',
+      color: level.color ?? '#F97316',
       city_id: level.city_id,
       city_title: city?.title ?? level.city_id,
       city_color: city?.color ?? '#F97316',
       completion_percent: Math.round((doneCount / comps.length) * 100),
+      completed_count: doneCount,
+      total_count: comps.length,
     })
   }
 
@@ -256,7 +264,6 @@ export default async function ProfilePage() {
     (p: { component_id: string; completed_at: string | null; components: { title?: string } | null }) => ({
       id: p.component_id,
       date: p.completed_at ?? today,
-      xp_earned: 10,
       event: p.components?.title ?? 'Component completed',
     })
   )
