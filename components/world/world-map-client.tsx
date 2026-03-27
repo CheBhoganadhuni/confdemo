@@ -2,7 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Search, X, User, ChevronDown } from 'lucide-react'
+import {
+  Search, X, User, ChevronDown,
+  Home, Map, GitBranch, LogOut, Zap, Clock, Route,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -11,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CityNode } from './city-node'
 import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
+import { CityCard } from './city-card'
 import type { CityWithProgress } from '@/lib/types/database'
 
 export type WorldCityMapped = CityWithProgress & {
@@ -48,7 +52,6 @@ const CITY_CONNECTIONS: [string, string][] = [
   ['cloud-deck', 'git-garage'],
 ]
 
-// Decorative map markers — purely visual, pointer-events-none
 const MAP_DECORATIONS = [
   { type: '+', left: '8%',  top: '20%' },
   { type: '◇', left: '90%', top: '25%' },
@@ -64,9 +67,11 @@ interface WorldMapClientProps {
   userId: string
   universityId?: string
   userName?: string
+  tokenCount?: number
+  todayMinutes?: number
 }
 
-export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
+export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes = 0 }: WorldMapClientProps) {
   const router = useRouter()
   const mappedCities: WorldCityMapped[] = cities.map(city => ({
     ...city,
@@ -76,6 +81,7 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
 
   const [view, setView] = useState<'world' | 'city'>('world')
   const [selectedCity, setSelectedCity] = useState<WorldCityMapped | null>(null)
+  const [cityCard, setCityCard] = useState<WorldCityMapped | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 })
@@ -86,24 +92,30 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
   const offsetStart = useRef({ x: 0, y: 0 })
   const avatarRef = useRef<HTMLDivElement>(null)
 
-  const filteredCities = mappedCities.filter(city =>
-    city.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    city.slug.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  // Detect mobile via window width
+  // Detect mobile
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
+    const check = () => setIsMobile(window.innerWidth < 768)
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  const filteredCities = mappedCities.filter(city =>
+    city.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    city.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // ALL city clicks → open CityCard first (desktop: centered, mobile: bottom sheet)
   const handleCityClick = useCallback((city: WorldCityMapped) => {
+    setCityCard(city)
+  }, [])
+
+  const handleExploreCity = useCallback((city: WorldCityMapped) => {
     setSelectedCity(city)
     setView('city')
     setSearchQuery('')
+    setCityCard(null)
   }, [])
 
   const handleBackToWorld = useCallback(() => {
@@ -151,12 +163,13 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (avatarOpen) { setAvatarOpen(false); return }
+        if (cityCard) { setCityCard(null); return }
         if (view === 'city') handleBackToWorld()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [view, avatarOpen, handleBackToWorld])
+  }, [view, avatarOpen, cityCard, handleBackToWorld])
 
   // Close avatar dropdown on outside click
   useEffect(() => {
@@ -170,40 +183,42 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
   }, [avatarOpen])
 
   const handleSignOut = async () => {
+    setAvatarOpen(false)
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/')
   }
 
-  const initials = userName ? userName.charAt(0).toUpperCase() : <User className="size-3.5" />
+  const avatarLetter = userName ? userName.charAt(0).toUpperCase() : null
+
+  const NAV_ITEMS = [
+    { icon: Home,      label: 'Home',      href: '/',        active: false },
+    { icon: Map,       label: 'World Map', href: '/world',   active: true  },
+    { icon: Route,     label: 'Roads',     href: '/road',    active: false },
+    { icon: User,      label: 'Profile',   href: '/profile', active: false },
+  ]
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#0A0A0A]">
 
-      {/* ── Context-aware top bar ── */}
+      {/* ── Top bar ── */}
       <header className="relative z-50 flex h-12 sm:h-14 items-center justify-between border-b border-[#1F1F1F] bg-[#0A0A0A]/90 px-3 sm:px-4 backdrop-blur-md gap-2">
 
-        {/* Left */}
-        {view === 'world' ? (
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-sm text-[#A0A0A0] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            <span className="hidden sm:inline">Home</span>
-          </Link>
-        ) : (
-          <button
-            onClick={handleBackToWorld}
-            className="flex items-center gap-1.5 text-sm text-[#A0A0A0] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            <span className="hidden sm:inline">World Map</span>
-          </button>
-        )}
+        {/* Left — only show Home link in world view; nothing in city view */}
+        <div className="w-16 shrink-0">
+          {view === 'world' && (
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-sm text-[#A0A0A0] hover:text-white transition-colors"
+            >
+              <Home className="size-4" />
+              <span className="hidden sm:inline text-xs">Home</span>
+            </Link>
+          )}
+        </div>
 
-        {/* Center */}
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-white pointer-events-none">
+        {/* Center title */}
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-white pointer-events-none whitespace-nowrap">
           {view === 'city' && selectedCity ? selectedCity.title : 'World Map'}
         </h1>
 
@@ -222,10 +237,7 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
                   className="h-7 border-[#1F1F1F] bg-[#111] pl-8 text-xs text-white placeholder:text-[#555] focus:border-[#F97316]/50 focus:ring-0"
                 />
                 {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#555] hover:text-white"
-                  >
+                  <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#555] hover:text-white">
                     <X className="size-3" />
                   </button>
                 )}
@@ -239,38 +251,74 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
             </>
           )}
 
-          {/* Avatar */}
+          {/* Avatar + full dropdown */}
           <div className="relative" ref={avatarRef}>
             <button
               onClick={() => setAvatarOpen(prev => !prev)}
               className="flex items-center gap-1 focus:outline-none"
             >
-              <div className="size-7 rounded-full bg-[#F97316] flex items-center justify-center text-black text-xs font-bold select-none">
-                {initials}
+              <div className="size-7 rounded-full bg-[#F97316] flex items-center justify-center text-black text-xs font-bold select-none overflow-hidden">
+                {avatarLetter ?? <User className="size-3.5" />}
               </div>
-              <ChevronDown className={cn('size-3 text-[#555] transition-transform', avatarOpen && 'rotate-180')} />
+              <ChevronDown className={cn('size-3 text-[#555] transition-transform duration-150', avatarOpen && 'rotate-180')} />
             </button>
 
             <AnimatePresence>
               {avatarOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.1 }}
-                  className="absolute top-full right-0 mt-1.5 z-50 min-w-[140px] bg-[#111] border border-[#1F1F1F] rounded-sm shadow-xl overflow-hidden"
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                  transition={{ duration: 0.12, ease: 'easeOut' }}
+                  className="absolute top-full right-0 mt-2 z-[60] w-52 bg-[#0F0F0F] border border-[#1F1F1F] rounded-sm shadow-2xl overflow-hidden"
                 >
-                  <Link
-                    href="/profile"
-                    onClick={() => setAvatarOpen(false)}
-                    className="block px-3 py-2 text-sm text-[#A0A0A0] hover:text-white hover:bg-[#161616] transition-colors"
-                  >
-                    My Profile
-                  </Link>
+                  {/* User info */}
+                  <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#1A1A1A]">
+                    <div className="size-8 rounded-full bg-[#F97316] flex items-center justify-center text-black text-sm font-bold shrink-0">
+                      {avatarLetter ?? <User className="size-3.5" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{userName ?? 'Student'}</p>
+                      <p className="text-[#555] text-xs truncate">Jnana Sethu</p>
+                    </div>
+                  </div>
+
+                  {/* Nav links */}
+                  <div className="border-b border-[#1A1A1A] py-1">
+                    {NAV_ITEMS.map(({ icon: Icon, label, href, active }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setAvatarOpen(false)}
+                        className={cn(
+                          'flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-[#161616]',
+                          active ? 'text-[#F97316]' : 'text-[#A0A0A0] hover:text-white'
+                        )}
+                      >
+                        <Icon className={cn('size-4', active ? 'text-[#F97316]' : 'text-[#555]')} />
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 px-4 py-2.5 border-b border-[#1A1A1A]">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="size-3 text-[#F97316]" />
+                      <span className="text-[#A0A0A0] text-xs">{tokenCount} Bolts</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="size-3 text-[#555]" />
+                      <span className="text-[#A0A0A0] text-xs">{todayMinutes}m today</span>
+                    </div>
+                  </div>
+
+                  {/* Sign out */}
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2 text-sm text-[#A0A0A0] hover:text-white hover:bg-[#161616] transition-colors border-t border-[#1A1A1A]"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#A0A0A0] hover:text-[#F97316] hover:bg-[#161616] transition-colors"
                   >
+                    <LogOut className="size-4 text-[#555]" />
                     Sign Out
                   </button>
                 </motion.div>
@@ -348,16 +396,12 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
                   opacity: 0.55,
                 }}
               />
-
               {/* Radial atmosphere */}
               <div
                 className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'radial-gradient(ellipse at 50% 40%, rgba(15,20,15,0.9) 0%, transparent 65%)',
-                }}
+                style={{ background: 'radial-gradient(ellipse at 50% 40%, rgba(15,20,15,0.9) 0%, transparent 65%)' }}
               />
-
-              {/* Decorative map markers */}
+              {/* Decorative markers */}
               {MAP_DECORATIONS.map((d, i) => (
                 <span
                   key={i}
@@ -381,7 +425,6 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
                   connections={CITY_CONNECTIONS}
                   highlightCity={searchQuery ? filteredCities.map(c => c.slug) : undefined}
                 />
-
                 {mappedCities.map((city) => (
                   <CityNode
                     key={city.id}
@@ -400,6 +443,14 @@ export function WorldMapClient({ cities, userName }: WorldMapClientProps) {
                   </div>
                 </div>
               )}
+
+              {/* City card — bottom sheet on mobile, centered overlay on desktop */}
+              <CityCard
+                city={cityCard}
+                isMobile={isMobile}
+                onClose={() => setCityCard(null)}
+                onExplore={handleExploreCity}
+              />
             </motion.div>
           ) : (
             <motion.div

@@ -25,9 +25,27 @@ export function CityNode({ city, onClick, isFiltered, isMobile }: CityNodeProps)
   const completedLength = (city.completion_percent / 100) * circumference
   const iconSize = Math.round(size * 0.38)
 
-  const isComplete = city.completion_percent === 100
-  const hasProgress = city.completion_percent > 0
+  const pct = city.completion_percent
+  const isComplete = pct === 100
+  const hasProgress = pct > 0
   const isInProgress = hasProgress && !isComplete
+  const isAlmostDone = pct >= 70 && pct < 100
+  const count = city.active_student_count
+  const countDisplay = count > 99 ? '99+' : String(count)
+
+  // Derive total/remaining components from levels for tooltip
+  const totalComponents = city.levels.reduce((s, l) => s + l.total_count, 0)
+  const completedComponents = city.levels.reduce((s, l) => s + l.completed_count, 0)
+  const remainingComponents = totalComponents - completedComponents
+
+  // Context-aware tooltip line 3
+  const psychLine = (() => {
+    if (isComplete) return { text: '✓ Complete', color: '#34d399' }
+    if (isAlmostDone) return { text: `⚡ ${remainingComponents} topic${remainingComponents !== 1 ? 's' : ''} left!`, color: '#F97316' }
+    if (hasProgress) return { text: `${pct}% complete`, color: city.color }
+    if (count > 0) return { text: `${countDisplay} students here this week`, color: '#F97316' }
+    return { text: 'Start this city', color: '#555' }
+  })()
 
   return (
     <motion.button
@@ -52,18 +70,16 @@ export function CityNode({ city, onClick, isFiltered, isMobile }: CityNodeProps)
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
     >
-      {/* Hover tooltip — above node */}
-      {isHovered && (
+      {/* Desktop hover tooltip */}
+      {isHovered && !isMobile && (
         <div className="absolute bottom-full mb-3 z-50 pointer-events-none whitespace-nowrap bg-[#111] border border-[#1F1F1F] rounded-sm px-3 py-2 shadow-xl">
           <div className="font-bold text-white text-xs mb-0.5">{city.title}</div>
           <div className="text-[#A0A0A0] text-[10px]">
             {city.total_levels} levels · ~{city.estimated_hours}h
           </div>
-          {city.completion_percent > 0 && (
-            <div className="text-[10px] mt-0.5 font-medium" style={{ color: city.color }}>
-              {city.completion_percent}% complete
-            </div>
-          )}
+          <div className="text-[10px] mt-0.5 font-medium" style={{ color: psychLine.color }}>
+            {psychLine.text}
+          </div>
         </div>
       )}
 
@@ -84,25 +100,11 @@ export function CityNode({ city, onClick, isFiltered, isMobile }: CityNodeProps)
         )}
 
         {/* SVG completion ring */}
-        <svg
-          className="absolute inset-0 -rotate-90"
-          style={{ width: size, height: size }}
-        >
-          {/* Track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="#1A1A1A"
-            strokeWidth={strokeWidth}
-          />
-          {/* Progress arc */}
+        <svg className="absolute inset-0 -rotate-90" style={{ width: size, height: size }}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#1A1A1A" strokeWidth={strokeWidth} />
           {hasProgress && (
             <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
+              cx={size / 2} cy={size / 2} r={radius}
               fill="none"
               stroke={city.color}
               strokeWidth={strokeWidth}
@@ -154,18 +156,27 @@ export function CityNode({ city, onClick, isFiltered, isMobile }: CityNodeProps)
         >
           {city.title}
         </span>
-        {city.completion_percent > 0 && (
+
+        {/* Active student count pill — desktop and mobile */}
+        {count > 0 && (
           <span
-            className="text-[9px] font-medium"
-            style={{ color: city.color + 'CC' }}
+            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 mt-0.5"
+            style={{
+              backgroundColor: 'rgba(249,115,22,0.12)',
+              border: '1px solid rgba(249,115,22,0.28)',
+            }}
           >
-            {city.completion_percent}%
+            <Users className="size-2" style={{ color: '#F97316' }} />
+            <span className="text-[9px] font-semibold" style={{ color: '#F97316' }}>
+              {countDisplay}
+            </span>
           </span>
         )}
-        {!isMobile && city.active_student_count > 0 && (
-          <span className="text-[9px] text-[#F97316] flex items-center gap-0.5">
-            <Users className="size-2.5" />
-            {city.active_student_count}
+
+        {/* Completion % (only when has progress, no count pill overlap) */}
+        {hasProgress && count === 0 && (
+          <span className="text-[9px] font-medium" style={{ color: city.color + 'CC' }}>
+            {pct}%
           </span>
         )}
       </div>

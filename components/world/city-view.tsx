@@ -247,7 +247,7 @@ export function CityView({ city, levels, onBack }: CityViewProps) {
         transition={{ duration: 0.3, delay: 0.2 }}
       >
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 pointer-events-none"
           style={{
             background: `radial-gradient(ellipse at 30% 50%, color-mix(in srgb, ${city.color} 8%, transparent) 0%, transparent 70%)`,
           }}
