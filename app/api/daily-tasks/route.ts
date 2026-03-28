@@ -85,8 +85,7 @@ export async function GET() {
     const bolt = boltRes.data ?? { study: false, dsa: false, github: false, linkedin: false, token_sent: false }
     const userRow = userRes.data ?? {}
 
-    const today = new Date().toISOString().split('T')[0]
-    const studyMinutes = userRow.today_date === today ? (userRow.today_time_minutes ?? 0) : 0
+    const studyMinutes = userRow.today_time_minutes ?? 0
 
     // Auto-set bolt_status.study if study time reached 120 min
     if (studyMinutes >= 120 && bolt.study === false) {

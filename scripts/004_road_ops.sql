@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN road_ops integer NOT NULL DEFAULT 0;

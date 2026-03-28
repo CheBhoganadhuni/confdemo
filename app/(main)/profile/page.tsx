@@ -25,8 +25,6 @@ export default async function ProfilePage() {
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) redirect('/')
 
-  const today = new Date().toISOString().split('T')[0]
-
   // Ensure bolt_status row exists for this user
   await supabase
     .from('bolt_status')
@@ -48,8 +46,8 @@ export default async function ProfilePage() {
 
   const bolt = boltRes.data ?? { study: false, dsa: false, github: false, linkedin: false, token_sent: false }
 
-  // Today's study minutes
-  const todayMinutes = userData.today_date === today ? (userData.today_time_minutes ?? 0) : 0
+  // Study minutes for current bolt cycle (cron resets, not calendar day)
+  const todayMinutes = userData.today_time_minutes ?? 0
 
   // Auto-apply study bolt if 120 min reached
   const studyDone = todayMinutes >= 120 || bolt.study === true
