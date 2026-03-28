@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Clock, Zap, Menu, User, LogOut, Home, Map, Route, X } from 'lucide-react'
+import { Clock, Zap, Menu, User, LogOut, Home, Map, Route, X, BookOpen } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,10 +28,11 @@ interface AuthUser {
 }
 
 const NAV_LINKS = [
-  { href: '/',        label: 'Home',    Icon: Home  },
-  { href: '/world',   label: 'World',   Icon: Map   },
-  { href: '/road',    label: 'Roads',   Icon: Route },
-  { href: '/profile', label: 'Profile', Icon: User  },
+  { href: '/',        label: 'Home',    Icon: Home     },
+  { href: '/world',   label: 'World',   Icon: Map      },
+  { href: '/road',    label: 'Roads',   Icon: Route    },
+  { href: '/blog',    label: 'Blog',    Icon: BookOpen },
+  { href: '/profile', label: 'Profile', Icon: User     },
 ]
 
 export function Navbar() {
@@ -74,8 +75,8 @@ export function Navbar() {
               <>
                 {/* Nav links */}
                 <div className="flex items-center gap-1 mr-4">
-                  {NAV_LINKS.slice(0, 3).map(({ href, label }) => {
-                    const isActive = pathname === href
+                  {NAV_LINKS.slice(0, 4).map(({ href, label }) => {
+                    const isActive = href === '/blog' ? pathname.startsWith('/blog') : pathname === href
                     return (
                       <Link
                         key={href}
@@ -190,7 +191,7 @@ export function Navbar() {
               {/* Nav links */}
               <div className="py-2">
                 {NAV_LINKS.map(({ href, label, Icon }) => {
-                  const isActive = pathname === href
+                  const isActive = href === '/blog' ? pathname.startsWith('/blog') : pathname === href
                   return (
                     <Link
                       key={href}

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
-  ChevronDown, User, Home, Map, Route, LogOut, Zap, Clock,
+  ChevronDown, User, Home, Map, Route, LogOut, Zap, Clock, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSignOut } from '@/hooks/use-sign-out'
@@ -48,10 +48,11 @@ export function UserAvatarMenu({
   }
 
   const NAV = [
-    { icon: Home,  label: 'Home',      href: '/'        },
-    { icon: Map,   label: 'World Map', href: '/world'   },
-    { icon: Route, label: 'Roads',     href: '/road'    },
-    { icon: User,  label: 'Profile',   href: '/profile' },
+    { icon: Home,     label: 'Home',      href: '/'        },
+    { icon: Map,      label: 'World Map', href: '/world'   },
+    { icon: Route,    label: 'Roads',     href: '/road'    },
+    { icon: BookOpen, label: 'Blog',      href: '/blog'    },
+    { icon: User,     label: 'Profile',   href: '/profile' },
   ]
 
   return (

@@ -8,7 +8,8 @@ import { AnimatedGeometry } from '@/components/ui/AnimatedGeometry'
 import { OrangeScrollIndicator } from '@/components/ui/orange-scroll-indicator'
 import { SignInModal } from '@/components/auth/sign-in-modal'
 import { AuthErrorToast } from '@/components/auth/AuthErrorToast'
-import { ArrowRight, Map, Route, User, Zap, Lock } from 'lucide-react'
+import { ArrowRight, Map, Route, User, Zap, Lock, BookOpen } from 'lucide-react'
+import type { BlogPost } from '@/lib/types/database'
 
 function FadeInSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null)
@@ -249,10 +250,30 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false)
   const [signInOpen, setSignInOpen] = useState(false)
 
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
+
   // Lightweight auth check for button logic (Navbar manages its own display state)
   useEffect(() => {
     fetch('/api/user/me')
-      .then(res => { if (res.ok) setIsLoggedIn(true) })
+      .then(res => {
+        if (res.ok) {
+          setIsLoggedIn(true)
+          // Fetch blog teaser posts
+          fetch('/api/blog?visibility=university&sort=recent&page=1')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.posts) {
+                // Filter to last 7 days, take 3
+                const weekAgo = Date.now() - 7 * 24 * 3600000
+                const recent = data.posts
+                  .filter((p: BlogPost) => new Date(p.created_at).getTime() > weekAgo)
+                  .slice(0, 3)
+                setBlogPosts(recent)
+              }
+            })
+            .catch(() => {})
+        }
+      })
       .catch(() => {})
       .finally(() => setAuthChecked(true))
   }, [])
@@ -415,6 +436,47 @@ export default function Home() {
           </div>
         </motion.div>
       </section>
+
+      {/* ── BLOG TEASER — logged-in users only ── */}
+      {isLoggedIn && blogPosts.length > 0 && (
+        <section className="bg-[#0A0A0A] py-16 border-t border-[#1A1A1A]">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <FadeInSection>
+              <span className="text-[9px] tracking-widest text-[#F97316] uppercase mb-4 block">
+                FROM YOUR CAMPUS
+              </span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {blogPosts.map(post => (
+                  <Link
+                    key={post.id}
+                    href={`/blog/${post.slug}`}
+                    className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-4 hover:border-[#333] transition-colors"
+                  >
+                    {post.tags[0] && (
+                      <span className="text-[9px] text-[#F97316] uppercase tracking-wide">
+                        {post.tags[0]}
+                      </span>
+                    )}
+                    <h3 className="font-bold text-white text-base leading-tight mt-2 line-clamp-2">
+                      {post.title}
+                    </h3>
+                    <p className="text-[#444] text-xs mt-3">
+                      {post.author?.name || 'Anonymous'} · {new Date(post.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+              <Link
+                href="/blog"
+                className="text-[#555] text-sm hover:text-white mt-6 inline-flex items-center gap-1 transition-colors"
+              >
+                Read all posts
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </FadeInSection>
+          </div>
+        </section>
+      )}
 
       {/* ── SECTION 2 — THE PROBLEM ── */}
       <section id="how-it-works" ref={section2Ref} className="bg-[#F5F5F3] py-14 sm:py-32">
@@ -601,6 +663,7 @@ export default function Home() {
                   {[
                     { href: '/world',   label: 'World Map' },
                     { href: '/road',    label: 'Roads' },
+                    { href: '/blog',    label: 'Blog' },
                     { href: '/profile', label: 'My Profile' },
                   ].map(({ href, label }) => (
                     <li key={href}>

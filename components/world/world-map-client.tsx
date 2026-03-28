@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, X, User, ChevronDown,
-  Home, Map, GitBranch, LogOut, Zap, Clock, Route,
+  Home, Map, GitBranch, LogOut, Zap, Clock, Route, BookOpen,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -206,6 +206,7 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
     { icon: Home,      label: 'Home',      href: '/',        active: false },
     { icon: Map,       label: 'World Map', href: '/world',   active: true  },
     { icon: Route,     label: 'Roads',     href: '/road',    active: false },
+    { icon: BookOpen,  label: 'Blog',      href: '/blog',    active: false },
     { icon: User,      label: 'Profile',   href: '/profile', active: false },
   ]
 

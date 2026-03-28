@@ -189,6 +189,40 @@ export interface Notification {
   created_at: string
 }
 
+// Blog constants & types
+export const BLOG_TAGS = [
+  'Tech', 'DSA', 'Web Dev', 'AI & ML', 'Open Source',
+  'Career', 'Internships', 'Placements', 'Resume',
+  'Campus Life', 'Hostel', 'Exams', 'CGPA',
+  'Meme', 'Humor', 'Rant', 'Win',
+  'Books', 'Music', 'Movies', 'Games',
+  'Mental Health', 'Productivity', 'Motivation',
+  'Project', 'Hackathon', 'Research'
+] as const
+
+export type BlogTag = typeof BLOG_TAGS[number]
+
+export interface BlogPost {
+  id: string
+  author_id: string
+  university_id?: string
+  slug: string
+  title: string
+  body: string
+  cover_image_url?: string
+  tags: string[]
+  visibility: 'global' | 'university'
+  moderation_status: 'approved' | 'rejected' | 'pending'
+  moderation_reason?: string
+  upvote_count: number
+  is_published: boolean
+  created_at: string
+  updated_at: string
+  author?: Pick<User, 'id' | 'name' | 'avatar_url' | 'university_id'>
+  university?: Pick<University, 'name' | 'slug'>
+  has_upvoted?: boolean
+}
+
 // Computed/joined types used in UI
 export interface CityWithProgress extends City {
   levels: LevelWithProgress[]
