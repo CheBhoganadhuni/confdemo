@@ -24,6 +24,13 @@ import { cn } from '@/lib/utils'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { UserAvatarMenu } from '@/components/shared/user-avatar-menu'
 import { RoadView } from './road-view'
 import type { RoadWithProgress } from '@/lib/types/database'
@@ -79,14 +86,14 @@ export function RoadPageClient({
 
   const currentRoads =
     activeTab === 'presets' ? presetRoads :
-    activeTab === 'university' ? universityRoads :
-    myRoads
+      activeTab === 'university' ? universityRoads :
+        myRoads
 
   useEffect(() => {
     if (!selectedSummary && presetRoads.length > 0) {
       handleSelectRoad(presetRoads[0])
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSelectRoad = async (road: RoadSummary) => {
@@ -114,6 +121,7 @@ export function RoadPageClient({
       allRoads={{ presets: presetRoads, university: universityRoads, mine: myRoads }}
       selectedRoad={selectedSummary}
       onSelectRoad={handleSelectRoad}
+      myRoadCount={myRoads.length}
     />
   )
 
@@ -207,25 +215,28 @@ interface RoadBrowserProps {
   allRoads: { presets: RoadSummary[]; university: RoadSummary[]; mine: RoadSummary[] }
   selectedRoad: RoadSummary | null
   onSelectRoad: (road: RoadSummary) => void
+  myRoadCount: number
 }
 
-function RoadBrowser({ activeTab, setActiveTab, roads, allRoads, selectedRoad, onSelectRoad }: RoadBrowserProps) {
+function RoadBrowser({ activeTab, setActiveTab, roads, allRoads, selectedRoad, onSelectRoad, myRoadCount }: RoadBrowserProps) {
+  const [limitOpen, setLimitOpen] = useState(false)
+  const atLimit = myRoadCount >= 3
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
 
   const tabs: { id: TabType; label: string }[] = [
-    { id: 'presets',    label: 'Presets'    },
+    { id: 'presets', label: 'Presets' },
     { id: 'university', label: 'University' },
-    { id: 'mine',       label: 'Mine'       },
+    { id: 'mine', label: 'Mine' },
   ]
 
   // When searching, gather matches from all sections with labels
   const searchSections: { label: string; roads: RoadSummary[] }[] = q
     ? [
-        { label: 'Presets',    roads: allRoads.presets.filter(r => r.title.toLowerCase().includes(q)) },
-        { label: 'University', roads: allRoads.university.filter(r => r.title.toLowerCase().includes(q)) },
-        { label: 'Mine',       roads: allRoads.mine.filter(r => r.title.toLowerCase().includes(q)) },
-      ].filter(s => s.roads.length > 0)
+      { label: 'Presets', roads: allRoads.presets.filter(r => r.title.toLowerCase().includes(q)) },
+      { label: 'University', roads: allRoads.university.filter(r => r.title.toLowerCase().includes(q)) },
+      { label: 'Mine', roads: allRoads.mine.filter(r => r.title.toLowerCase().includes(q)) },
+    ].filter(s => s.roads.length > 0)
     : []
 
   const totalMatches = searchSections.reduce((n, s) => n + s.roads.length, 0)
@@ -310,16 +321,54 @@ function RoadBrowser({ activeTab, setActiveTab, roads, allRoads, selectedRoad, o
       </div>
 
       <div className="px-5 py-4 border-t border-[#1F1F1F] shrink-0">
-        <Link href="/road/build">
-          <Button
-            variant="outline"
-            className="w-full h-9 text-xs font-bold tracking-wide border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10 hover:text-[#F97316]"
+        {atLimit ? (
+          <button
+            onClick={() => setLimitOpen(true)}
+            className="w-full h-9 text-xs font-medium rounded-sm border border-[#1F1F1F] text-[#555] hover:border-[#333] hover:text-[#888] transition-colors flex items-center justify-center gap-2"
           >
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4" />
             Build a road
-          </Button>
-        </Link>
+            <span className="ml-1 text-[10px] tracking-wide text-[#333]">3/3</span>
+          </button>
+        ) : (
+          <Link href="/road/build">
+            <Button
+              variant="outline"
+              className="w-full h-9 text-xs font-bold tracking-wide border-[#F97316] text-[#F97316] hover:bg-[#F97316]/10 hover:text-[#F97316]"
+            >
+              <Plus className="size-4 mr-2" />
+              Build a road
+            </Button>
+          </Link>
+        )}
       </div>
+
+      {/* Road limit modal */}
+      <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+        <DialogContent className="bg-[#111] border border-[#1F1F1F] rounded-sm text-white max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white text-base font-bold">Road limit reached</DialogTitle>
+            <DialogDescription className="sr-only">Road limit information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-[#A0A0A0] text-sm leading-relaxed">
+              You can link up to <span className="text-white font-medium">3 roads</span> as a regular user.
+              Upgrade to premium to increase your limit.
+            </p>
+            <p className="text-[#A0A0A0] text-sm leading-relaxed">
+              You can always <span className="text-white font-medium">delete a road </span> to free up a slot.
+              No worries, any component you&apos;ve marked complete keeps its status forever.
+              You can always revisit your progress from the{' '}
+              <span className="text-white font-medium">World Map</span>.
+            </p>
+            <p className="text-[#A0A0A0] text-sm leading-relaxed">
+              Roads are just a guide to connect your components, not a gate.
+              Enjoy learning!
+            </p>
+            <p className="text-[#333] text-xs pt-1">~ Team Jnana Sethu</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

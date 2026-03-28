@@ -512,6 +512,14 @@ export function ProfileClient({
                 </div>
               </div>
 
+              {/* 48-hr cycle info */}
+              <div className="flex items-start gap-2.5 rounded-sm border border-[#1F1F1F] bg-[#0D0D0D] px-4 py-3">
+                <span className="mt-0.5 text-[#F97316]">⚡</span>
+                <p className="text-[11px] leading-relaxed text-[#555]">
+                  Tasks reset on a <span className="text-[#A0A0A0]">48-hour cycle</span>. Complete all tasks within the 2-day window to claim your bolt. Study time accumulates across both days, you don&apos;t need to hit 2 hours in a single sitting.
+                </p>
+              </div>
+
               {/* Daily Tasks */}
               <div className="bg-[#111] border border-[#1F1F1F] rounded-sm p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-4">

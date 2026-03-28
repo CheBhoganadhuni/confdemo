@@ -51,12 +51,15 @@ export function useBackButtonClose(isOpen: boolean, onClose: () => void) {
   // true once popstate consumed this entry (so cleanup skips history.back)
   const consumedRef = useRef(false)
   const idRef = useRef<number | null>(null)
+  // remember the URL when we pushed so we can detect real navigations
+  const hrefAtOpenRef = useRef<string>('')
 
   useEffect(() => {
     if (!isOpen) return
 
     // Push a fake history entry so the swipe has somewhere to land
     window.history.pushState({ _backClose: true }, '')
+    hrefAtOpenRef.current = window.location.href
 
     const id = nextId++
     idRef.current = id
@@ -78,9 +81,10 @@ export function useBackButtonClose(isOpen: boolean, onClose: () => void) {
       stopListening()
 
       // Closed via UI action (not back-swipe) — pop the entry we pushed.
-      // Increment syntheticBacks so the resulting popstate event is swallowed
-      // and does NOT trigger the next handler in the stack.
-      if (!consumedRef.current) {
+      // BUT: if the user navigated to a new page (href changed), Next.js
+      // already pushed its own history entry. Calling history.back() here
+      // would undo that navigation. Skip it — the pushed entry is gone.
+      if (!consumedRef.current && window.location.href === hrefAtOpenRef.current) {
         syntheticBacks++
         window.history.back()
       }

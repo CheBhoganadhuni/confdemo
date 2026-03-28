@@ -123,6 +123,11 @@ export function RoadView({ road, todayMinutes, onMinutesUpdate, isOwner, onDelet
             by <span className="text-[#555]">{road.creator_name}</span>
           </p>
         )}
+        {road.description && (
+          <p className="text-[#666] text-xs sm:text-sm mt-2 leading-relaxed max-w-xl">
+            {road.description}
+          </p>
+        )}
         <Progress
           value={progressPercent}
           className="mt-3 h-1.5 bg-[#1F1F1F]"

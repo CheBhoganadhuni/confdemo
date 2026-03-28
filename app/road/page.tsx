@@ -17,16 +17,14 @@ export default async function RoadPage() {
 
   const { data: userData } = await supabase
     .from('users')
-    .select('university_id, today_time_minutes, today_date, name, token_count')
+    .select('university_id, today_time_minutes, name, token_count')
     .eq('id', user.id)
     .single()
 
   const universityId = userData?.university_id ?? null
 
-  // Compute today's study minutes (reset if date has changed)
-  const today = new Date().toISOString().split('T')[0]
-  const todayMinutes =
-    userData?.today_date === today ? (userData?.today_time_minutes ?? 0) : 0
+  // Study minutes for current bolt cycle (cron resets, not calendar day)
+  const todayMinutes = userData?.today_time_minutes ?? 0
 
   // Fetch all accessible roads
   const orParts = [
