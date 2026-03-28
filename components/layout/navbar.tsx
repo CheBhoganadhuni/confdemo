@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Clock, Zap, Menu, User, LogOut, Home, Map, Route, X } from 'lucide-react'
 import {
@@ -17,8 +17,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { SignInModal } from '@/components/auth/sign-in-modal'
-import { createClient } from '@/lib/supabase/client'
 import { formatDuration } from '@/lib/utils'
+import { useSignOut } from '@/hooks/use-sign-out'
+import { PageLoader } from '@/components/ui/page-loader'
 
 interface AuthUser {
   name: string
@@ -34,7 +35,6 @@ const NAV_LINKS = [
 ]
 
 export function Navbar() {
-  const router = useRouter()
   const pathname = usePathname()
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [signInOpen, setSignInOpen] = useState(false)
@@ -52,13 +52,7 @@ export function Navbar() {
       .catch(() => setAuthUser(null))
   }, [])
 
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setAuthUser(null)
-    router.push('/')
-    router.refresh()
-  }
+  const { signOut, signingOut } = useSignOut()
 
   const getInitial = (name: string) => name.charAt(0).toUpperCase()
   const studyTime = authUser ? formatDuration(authUser.today_time_minutes) : '0h 0m'
@@ -66,6 +60,7 @@ export function Navbar() {
 
   return (
     <>
+      {signingOut && <PageLoader />}
       <nav className="fixed top-0 left-0 right-0 z-50 h-14 bg-[rgba(10,10,10,0.90)] backdrop-blur-md border-b border-[#1F1F1F]">
         <div className="h-full max-w-7xl mx-auto px-4 flex items-center justify-between">
           {/* Logo */}
@@ -125,7 +120,7 @@ export function Navbar() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-[#1F1F1F]" />
                     <DropdownMenuItem
-                      onClick={handleSignOut}
+                      onClick={signOut}
                       className="cursor-pointer text-[#A0A0A0] focus:text-white"
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -239,7 +234,7 @@ export function Navbar() {
               {/* Sign Out */}
               <button
                 onClick={() => {
-                  handleSignOut()
+                  signOut()
                   setMobileMenuOpen(false)
                 }}
                 className="flex items-center gap-3 px-5 py-3.5 text-sm text-[#555] hover:text-[#F97316] transition-colors w-full mt-auto"

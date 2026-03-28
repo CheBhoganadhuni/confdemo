@@ -7,16 +7,16 @@ import {
   Home, Map, GitBranch, LogOut, Zap, Clock, Route,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
 import { CityNode } from './city-node'
 import { CityView } from './city-view'
 import { CityConnections } from './city-connections'
 import { CityCard } from './city-card'
 import type { CityWithProgress } from '@/lib/types/database'
 import { useBackButtonClose } from '@/hooks/use-back-button-close'
+import { useSignOut } from '@/hooks/use-sign-out'
+import { PageLoader } from '@/components/ui/page-loader'
 
 export type WorldCityMapped = CityWithProgress & {
   position: { left: string; top: string }
@@ -73,7 +73,6 @@ interface WorldMapClientProps {
 }
 
 export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes = 0 }: WorldMapClientProps) {
-  const router = useRouter()
   const mappedCities: WorldCityMapped[] = cities.map(city => ({
     ...city,
     position: CITY_LAYOUT[city.slug]?.position ?? DEFAULT_POSITION,
@@ -195,11 +194,10 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
     return () => document.removeEventListener('mousedown', handleClick)
   }, [avatarOpen])
 
-  const handleSignOut = async () => {
+  const { signOut, signingOut } = useSignOut()
+  const handleSignOut = () => {
     setAvatarOpen(false)
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/')
+    signOut()
   }
 
   const avatarLetter = userName ? userName.charAt(0).toUpperCase() : null
@@ -212,6 +210,8 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
   ]
 
   return (
+    <>
+    {signingOut && <PageLoader />}
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#0A0A0A]">
 
       {/* ── Top bar ── */}
@@ -486,5 +486,6 @@ export function WorldMapClient({ cities, userName, tokenCount = 0, todayMinutes 
         </AnimatePresence>
       </main>
     </div>
+    </>
   )
 }

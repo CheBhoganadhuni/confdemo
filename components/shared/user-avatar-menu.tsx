@@ -3,12 +3,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   ChevronDown, User, Home, Map, Route, LogOut, Zap, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { useSignOut } from '@/hooks/use-sign-out'
+import { PageLoader } from '@/components/ui/page-loader'
 
 interface UserAvatarMenuProps {
   userName?: string
@@ -23,7 +23,7 @@ export function UserAvatarMenu({
   todayMinutes = 0,
   activeRoute = '',
 }: UserAvatarMenuProps) {
-  const router = useRouter()
+  const { signOut, signingOut } = useSignOut()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const avatarLetter = userName ? userName.charAt(0).toUpperCase() : null
@@ -42,10 +42,9 @@ export function UserAvatarMenu({
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     setOpen(false)
-    await createClient().auth.signOut()
-    router.push('/')
+    signOut()
   }
 
   const NAV = [
@@ -56,6 +55,8 @@ export function UserAvatarMenu({
   ]
 
   return (
+    <>
+    {signingOut && <PageLoader />}
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(p => !p)}
@@ -132,5 +133,6 @@ export function UserAvatarMenu({
         )}
       </AnimatePresence>
     </div>
+    </>
   )
 }
