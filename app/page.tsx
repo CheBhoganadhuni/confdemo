@@ -108,7 +108,7 @@ function FeatureCards() {
   const slideVariants = {
     enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit:  (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
+    exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
   }
 
   return (
@@ -251,6 +251,8 @@ export default function Home() {
   const [signInOpen, setSignInOpen] = useState(false)
 
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
+  // Start as true so the skeleton shows immediately on first paint — no pop-in
+  const [blogLoading, setBlogLoading] = useState(true)
 
   // Lightweight auth check for button logic (Navbar manages its own display state)
   useEffect(() => {
@@ -258,23 +260,29 @@ export default function Home() {
       .then(res => {
         if (res.ok) {
           setIsLoggedIn(true)
-          // Fetch blog teaser posts
-          fetch('/api/blog?visibility=university&sort=recent&page=1')
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-              if (data?.posts) {
-                // Filter to last 7 days, take 3
-                const weekAgo = Date.now() - 7 * 24 * 3600000
-                const recent = data.posts
-                  .filter((p: BlogPost) => new Date(p.created_at).getTime() > weekAgo)
-                  .slice(0, 3)
-                setBlogPosts(recent)
-              }
-            })
-            .catch(() => {})
+          // Fetch blog teaser: both university + global, merge, dedup, latest 3
+          Promise.all([
+            fetch('/api/blog?visibility=university&sort=recent&page=1').then(r => r.ok ? r.json() : null),
+            fetch('/api/blog?visibility=global&sort=recent&page=1').then(r => r.ok ? r.json() : null),
+          ]).then(([univData, globalData]) => {
+            const all = [
+              ...(univData?.posts || []),
+              ...(globalData?.posts || []),
+            ]
+            // Deduplicate by id, sort newest first, take 3
+            const seen = new Set<string>()
+            const recent = all
+              .filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true })
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 3)
+            setBlogPosts(recent)
+          }).catch(() => { }).finally(() => setBlogLoading(false))
+        } else {
+          // Not logged in — stop showing skeleton
+          setBlogLoading(false)
         }
       })
-      .catch(() => {})
+      .catch(() => { setBlogLoading(false) })
       .finally(() => setAuthChecked(true))
   }, [])
 
@@ -318,6 +326,70 @@ export default function Home() {
     <main className="bg-[#0A0A0A]">
       <Navbar />
 
+      {/* ── BLOG TEASER STRIP
+           Render from first paint (skeleton visible immediately).
+           Fades out if user is not logged in. No pop-in layout shift. ── */}
+      <AnimatePresence initial={false}>
+        {(!authChecked || isLoggedIn || blogLoading) && (
+          <motion.div
+            key="blog-strip"
+            initial={false}
+            animate={{ opacity: authChecked && !isLoggedIn ? 0 : 1, height: authChecked && !isLoggedIn ? 0 : 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="mt-14 border-b border-[#1A1A1A] bg-[#0A0A0A] overflow-hidden"
+          >
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3 overflow-x-auto scrollbar-hide">
+              <span className="text-[9px] tracking-widest text-[#F97316] uppercase whitespace-nowrap flex-shrink-0">
+                From campus
+              </span>
+              <span className="w-px h-3 bg-[#1F1F1F] flex-shrink-0" />
+
+              {(blogLoading || !authChecked) ? (
+                /* Skeleton shimmer pills — shown immediately on first paint */
+                <>
+                  {[100, 140, 120].map(w => (
+                    <span key={w} className="flex items-center gap-3 flex-shrink-0">
+                      <span
+                        className="h-2.5 rounded-sm bg-[#1A1A1A] animate-pulse"
+                        style={{ width: w }}
+                      />
+                      <span className="text-[#2A2A2A] text-xs">·</span>
+                    </span>
+                  ))}
+                </>
+              ) : (
+                blogPosts.map((post, i) => (
+                  <span key={post.id} className="flex items-center gap-3 flex-shrink-0">
+                    <Link href={`/blog/${post.slug}`} className="flex items-center gap-1.5 group">
+                      {post.tags[0] && (
+                        <span className="text-[9px] uppercase tracking-wide text-[#F97316] font-medium">
+                          {post.tags[0]}
+                        </span>
+                      )}
+                      <span className="text-xs text-[#777] group-hover:text-white transition-colors truncate max-w-[160px] sm:max-w-[220px]">
+                        {post.title}
+                      </span>
+                    </Link>
+                    {i < blogPosts.length - 1 && (
+                      <span className="text-[#2A2A2A] text-xs">·</span>
+                    )}
+                  </span>
+                ))
+              )}
+
+              <span className="w-px h-3 bg-[#1F1F1F] flex-shrink-0" />
+              <Link
+                href="/blog"
+                className="text-[9px] tracking-widest text-[#555] hover:text-[#F97316] uppercase whitespace-nowrap flex-shrink-0 transition-colors flex items-center gap-1"
+              >
+                See all <ArrowRight className="size-2.5" />
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── SECTION 1 — HERO ── */}
       <section ref={heroRef} className="relative min-h-screen overflow-hidden bg-[#0A0A0A]">
         {/* Scroll-reactive animated geometry replaces static PolyBackground */}
@@ -325,7 +397,7 @@ export default function Home() {
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
-          className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 flex items-center min-h-screen pt-14 will-change-transform"
+          className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 flex items-center min-h-screen pt-2 will-change-transform"
         >
           <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between w-full gap-8 lg:gap-8">
             {/* Left Column */}
@@ -399,9 +471,9 @@ export default function Home() {
               {/* Mobile: horizontal grid */}
               <div className="grid grid-cols-4 gap-2 sm:gap-3 lg:hidden">
                 {[
-                  { number: '2',    label: 'Career Roads' },
-                  { number: '10',   label: 'Themed Cities' },
-                  { number: '32',   label: 'Skill Levels' },
+                  { number: '2', label: 'Career Roads' },
+                  { number: '10', label: 'Themed Cities' },
+                  { number: '32', label: 'Skill Levels' },
                   { number: '200+', label: 'Resources' },
                 ].map((stat) => (
                   <div key={stat.label} className="text-center py-3 sm:py-4 border border-[#1F1F1F] rounded-sm">
@@ -416,9 +488,9 @@ export default function Home() {
               {/* Desktop: vertical aligned right */}
               <div className="hidden lg:flex flex-col items-end justify-center">
                 {[
-                  { number: '2',    label: 'Career Roads' },
-                  { number: '10',   label: 'Themed Cities' },
-                  { number: '32',   label: 'Skill Levels' },
+                  { number: '2', label: 'Career Roads' },
+                  { number: '10', label: 'Themed Cities' },
+                  { number: '32', label: 'Skill Levels' },
                   { number: '200+', label: 'Resources' },
                 ].map((stat, index) => (
                   <div
@@ -437,48 +509,24 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* ── BLOG TEASER — logged-in users only ── */}
-      {isLoggedIn && blogPosts.length > 0 && (
-        <section className="bg-[#0A0A0A] py-16 border-t border-[#1A1A1A]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <FadeInSection>
-              <span className="text-[9px] tracking-widest text-[#F97316] uppercase mb-4 block">
-                FROM YOUR CAMPUS
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {blogPosts.map(post => (
-                  <Link
-                    key={post.id}
-                    href={`/blog/${post.slug}`}
-                    className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-4 hover:border-[#333] transition-colors"
-                  >
-                    {post.tags[0] && (
-                      <span className="text-[9px] text-[#F97316] uppercase tracking-wide">
-                        {post.tags[0]}
-                      </span>
-                    )}
-                    <h3 className="font-bold text-white text-base leading-tight mt-2 line-clamp-2">
-                      {post.title}
-                    </h3>
-                    <p className="text-[#444] text-xs mt-3">
-                      {post.author?.name || 'Anonymous'} · {new Date(post.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-              <Link
-                href="/blog"
-                className="text-[#555] text-sm hover:text-white mt-6 inline-flex items-center gap-1 transition-colors"
-              >
-                Read all posts
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </FadeInSection>
-          </div>
-        </section>
-      )}
+      {/* ── SECTION 2 — FEATURE CARDS (4 pillars) ── */}
+      <section id="section-glimpse" ref={section4Ref} className="bg-[#0A0A0A] py-14 sm:py-24 overflow-hidden border-t border-[#1A1A1A]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <FadeInSection>
+            <span className="text-[10px] tracking-[0.2em] text-[#F97316] font-semibold mb-4 block">
+              WHAT&apos;S INSIDE
+            </span>
+            <h2 className="text-2xl sm:text-4xl tracking-tight mb-10 sm:mb-14">
+              <span className="font-light text-[#A0A0A0]">Four pillars.</span>
+              <span className="font-black text-white"> One platform.</span>
+            </h2>
+          </FadeInSection>
 
-      {/* ── SECTION 2 — THE PROBLEM ── */}
+          <FeatureCards />
+        </div>
+      </section>
+
+      {/* ── SECTION 3 — THE PROBLEM ── */}
       <section id="how-it-works" ref={section2Ref} className="bg-[#F5F5F3] py-14 sm:py-32">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-24">
@@ -516,9 +564,8 @@ export default function Home() {
                 <FadeInSection
                   key={item.num}
                   delay={index * 0.1}
-                  className={`relative group pl-4 overflow-hidden cursor-default py-5 sm:py-8 transition-all duration-300 ${
-                    index !== 2 ? 'border-b border-[#D5D5D3]' : ''
-                  }`}
+                  className={`relative group pl-4 overflow-hidden cursor-default py-5 sm:py-8 transition-all duration-300 ${index !== 2 ? 'border-b border-[#D5D5D3]' : ''
+                    }`}
                 >
                   {/* Animated left-border accent */}
                   <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top rounded-full" />
@@ -534,7 +581,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── SECTION 3 — THE SOLUTION ── */}
+      {/* ── SECTION 4 — THE SOLUTION ── */}
       <section id="section-solution" className="relative bg-[#0A0A0A] py-14 sm:py-32 overflow-hidden">
         {/* Scroll-reactive animated geometry */}
         <AnimatedGeometry className="absolute inset-0 w-full h-full" />
@@ -572,11 +619,9 @@ export default function Home() {
               <FadeInSection
                 key={col.num}
                 delay={index * 0.12}
-                className={`relative group overflow-hidden cursor-default transition-all duration-300 px-4 sm:px-6 py-5 sm:py-8 ${
-                  index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''
-                } ${
-                  index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''
-                }`}
+                className={`relative group overflow-hidden cursor-default transition-all duration-300 px-4 sm:px-6 py-5 sm:py-8 ${index !== 0 ? 'md:border-l md:border-[#1F1F1F]' : ''
+                  } ${index !== 2 ? 'border-b md:border-b-0 border-[#1F1F1F]' : ''
+                  }`}
               >
                 {/* Animated left-border accent */}
                 <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#F97316] scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-top rounded-full" />
@@ -588,23 +633,6 @@ export default function Home() {
               </FadeInSection>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 4 — FEATURE CARDS ── */}
-      <section id="section-glimpse" ref={section4Ref} className="bg-[#0A0A0A] py-14 sm:py-24 overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <FadeInSection>
-            <span className="text-[10px] tracking-[0.2em] text-[#F97316] font-semibold mb-4 block">
-              WHAT&apos;S INSIDE
-            </span>
-            <h2 className="text-2xl sm:text-4xl tracking-tight mb-10 sm:mb-14">
-              <span className="font-light text-[#A0A0A0]">Four pillars.</span>
-              <span className="font-black text-white"> One platform.</span>
-            </h2>
-          </FadeInSection>
-
-          <FeatureCards />
         </div>
       </section>
 
@@ -661,9 +689,9 @@ export default function Home() {
                 <span className="text-[10px] tracking-widest text-[#555] uppercase mb-2.5 block">Explore</span>
                 <ul className="flex flex-col gap-2">
                   {[
-                    { href: '/world',   label: 'World Map' },
-                    { href: '/road',    label: 'Roads' },
-                    { href: '/blog',    label: 'Blog' },
+                    { href: '/world', label: 'World Map' },
+                    { href: '/road', label: 'Roads' },
+                    { href: '/blog', label: 'Blog' },
                     { href: '/profile', label: 'My Profile' },
                   ].map(({ href, label }) => (
                     <li key={href}>
@@ -709,7 +737,13 @@ export default function Home() {
       {/* ── FIXED SCROLL INDICATOR — desktop/tablet only ── */}
       <div className="fixed bottom-8 right-8 z-50 hidden md:flex">
         <OrangeScrollIndicator
-          sectionIds={['how-it-works', 'section-solution', 'section-glimpse', 'section-cta', 'section-footer']}
+          sectionIds={[
+            'section-glimpse',
+            'how-it-works',
+            'section-solution',
+            ...(!isLoggedIn ? ['section-cta'] : []),
+            'section-footer',
+          ]}
         />
       </div>
 

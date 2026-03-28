@@ -32,7 +32,7 @@ function PostCard({ post, onUpvote }: { post: BlogPost; onUpvote: (slug: string)
   return (
     <div
       onClick={handleCardClick}
-      className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-4 sm:p-5 hover:border-[#333] transition-colors cursor-pointer"
+      className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-4 sm:p-5 hover:border-[#333] transition-colors cursor-pointer flex flex-col"
     >
       {/* Top row */}
       <div className="flex items-center gap-2">
@@ -93,8 +93,8 @@ function PostCard({ post, onUpvote }: { post: BlogPost; onUpvote: (slug: string)
         </div>
       )}
 
-      {/* Bottom row */}
-      <div className="mt-4 flex items-center gap-4 border-t border-[#161616] pt-3">
+      {/* Bottom row — pushed to bottom */}
+      <div className="mt-auto pt-3 flex items-center gap-4 border-t border-[#161616]">
         <button
           onClick={handleUpvoteClick}
           className="flex items-center gap-1.5 text-sm hover:scale-105 active:scale-95 transition-transform"
@@ -201,7 +201,7 @@ export function BlogFeedClient({ initialPosts, totalCount, userId, canPost }: Pr
   return (
     <main className="bg-[#0A0A0A] min-h-screen">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 pt-20 pb-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-16">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
@@ -289,37 +289,33 @@ export function BlogFeedClient({ initialPosts, totalCount, userId, canPost }: Pr
           ))}
         </div>
 
-        {/* Posts */}
-        <div className="mt-6 space-y-3">
+        {/* Posts — 1 col on mobile, 2 cols on lg+ */}
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-3">
           {posts.map(post => (
             <PostCard key={post.id} post={post} onUpvote={handleUpvote} />
           ))}
 
-          {posts.length === 0 && !loading && (
-            <div className="text-center py-16">
-              <p className="text-[#555] text-sm">
-                {search ? `No posts found for "${search}".` : 'No posts yet. Be the first to write something.'}
-              </p>
-            </div>
-          )}
-
           {/* Loading skeletons */}
-          {loading && (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-5 animate-pulse">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-[#1A1A1A]" />
-                    <div className="h-3 w-24 bg-[#1A1A1A] rounded" />
-                  </div>
-                  <div className="h-5 w-3/4 bg-[#1A1A1A] rounded mt-3" />
-                  <div className="h-3 w-full bg-[#1A1A1A] rounded mt-3" />
-                  <div className="h-3 w-2/3 bg-[#1A1A1A] rounded mt-2" />
-                </div>
-              ))}
+          {loading && [1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-sm p-5 animate-pulse">
+              <div className="flex items-center gap-2">
+                <div className="size-6 rounded-full bg-[#1A1A1A]" />
+                <div className="h-3 w-24 bg-[#1A1A1A] rounded" />
+              </div>
+              <div className="h-5 w-3/4 bg-[#1A1A1A] rounded mt-3" />
+              <div className="h-3 w-full bg-[#1A1A1A] rounded mt-3" />
+              <div className="h-3 w-2/3 bg-[#1A1A1A] rounded mt-2" />
             </div>
-          )}
+          ))}
         </div>
+
+        {posts.length === 0 && !loading && (
+          <div className="text-center py-16">
+            <p className="text-[#555] text-sm">
+              {search ? `No posts found for "${search}".` : 'No posts yet. Be the first to write something.'}
+            </p>
+          </div>
+        )}
 
         {/* Load more */}
         {hasMore && !loading && (
